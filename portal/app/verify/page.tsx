@@ -1,9 +1,11 @@
 
 "use client";
+import { useRouter } from "next/navigation";
 
 import Link from "next/link";
 
 export default function VerifyPage() {
+    const router = useRouter();
   return (
     <main
       style={{
@@ -14,7 +16,8 @@ export default function VerifyPage() {
         textAlign: "center",
         border: "1px solid #ddd",
         borderRadius: "12px",
-      }}
+      }
+    }
     >
       <h1>Face Verification</h1>
       <p>Verify your identity to securely access your grades.</p>
@@ -32,7 +35,7 @@ export default function VerifyPage() {
       </div>
 
       <button
-        onClick={() => alert("Face verification will be connected later.")}
+       onClick={() => router.push("/student-dashboard")}
         style={{
           width: "100%",
           padding: "12px",
