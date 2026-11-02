@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 
+
 export default function Home() {
   return (
     <main style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
@@ -14,9 +15,11 @@ export default function Home() {
           </button>
         </Link>
 
-        <button style={{ padding: "12px 24px" }}>
-          Instructor Login
-        </button>
+        <Link href="/instructor-login">
+  <button style={{ padding: "12px 24px" }}>
+    Instructor Login
+  </button>
+</Link>
       </div>
     </main>
   );
