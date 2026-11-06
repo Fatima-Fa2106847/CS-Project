@@ -1,9 +1,30 @@
 
+"use client";
 import Link from "next/link";
 import { canViewGrade } from "../../lib/access-control";
 import { demoUsers } from "../../lib/demo-users";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getSession } from "../../lib/sessions";
 
 export default function StudentDashboard() {
+  const router = useRouter();
+const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+useEffect(() => {
+  const session = getSession();
+
+  if (!session || session.role !== "student") {
+    router.replace("/login");
+    return;
+  }
+
+  setIsCheckingSession(false);
+}, [router]);
+
+if (isCheckingSession) {
+  return <p>Checking access...</p>;
+}
   const courses = [
   {
     studentId: "2021001",

@@ -2,6 +2,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 
+import { createSession } from "../../lib/sessions";
+
+
 import Link from "next/link";
 
 export default function VerifyPage() {
@@ -35,7 +38,12 @@ export default function VerifyPage() {
       </div>
 
       <button
-       onClick={() => router.push("/student-dashboard")}
+       
+onClick={() => {
+  createSession("2021001", "student");
+  router.push("/student-dashboard");
+}}
+
         style={{
           width: "100%",
           padding: "12px",
