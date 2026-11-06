@@ -10,29 +10,33 @@ import { useRouter } from "next/navigation";
 import { getSession } from "../../../lib/sessions";
 
 export default function AuditLogsPage() {
-const router = useRouter();
-const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const router = useRouter();
 
-useEffect(() => {
-  const session = getSession();
-
-  if (!session || session.role !== "admin") {
-    router.replace("/admin-login");
-    return;
-  }
-
-  setIsCheckingSession(false);
-}, [router]);
-
-if (isCheckingSession) {
-  return <p>Checking access...</p>;
-}
-
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [logs, setLogs] = useState<AuditEvent[]>([]);
 
+  // Check administrator access
   useEffect(() => {
-    setLogs(getAuditEvents());
-  }, []);
+    const session = getSession();
+
+    if (!session || session.role !== "admin") {
+      router.replace("/admin-login");
+      return;
+    }
+
+    setIsCheckingSession(false);
+  }, [router]);
+
+  // Load audit logs after access is verified
+  useEffect(() => {
+    if (!isCheckingSession) {
+      setLogs(getAuditEvents());
+    }
+  }, [isCheckingSession]);
+
+  if (isCheckingSession) {
+    return <p>Checking access...</p>;
+  }
 
   return (
     <main style={{
@@ -113,7 +117,9 @@ if (isCheckingSession) {
                     }}>
                       {log.status}
                     </td>
-                    <td style={cellStyle}>{log.timestamp}</td>
+                    <td style={cellStyle}>
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>

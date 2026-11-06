@@ -4,13 +4,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createSession } from "../../lib/sessions";
+import {
+  createSession,
+  getSession,
+} from "../../lib/sessions";
 
 import {
   isAccountLocked,
   recordFailedLogin,
   resetLoginAttempts,
 } from "../../lib/login-security";
+
 import { recordAuditEvent } from "../../lib/audit-log";
 
 export default function AdminLogin() {
@@ -23,9 +27,9 @@ export default function AdminLogin() {
   function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const id = adminId.trim();
+    const id = adminId.trim().toUpperCase();
 
-    // Check whether the admin account is locked
+    // Check whether the account is locked
     if (isAccountLocked(id)) {
       setMessage(
         "Account temporarily locked. Please try again after 1 minute."
@@ -35,42 +39,53 @@ export default function AdminLogin() {
 
     // Validate administrator credentials
     if (id === "ADMIN001" && password === "admin123") {
-  resetLoginAttempts(id);
+      resetLoginAttempts(id);
 
-  recordAuditEvent({
-    userId: id,
-    userRole: "admin",
-    action: "LOGIN",
-    details: "Administrator successfully logged in.",
-    status: "SUCCESS",
-  });
+      recordAuditEvent({
+        userId: id,
+        userRole: "admin",
+        action: "LOGIN",
+        details: "Administrator successfully logged in.",
+        status: "SUCCESS",
+      });
 
-  createSession("ADMIN001", "admin");
+      // Create administrator session
+      createSession(id, "admin");
 
-  setMessage("");
-  router.push("/admin-dashboard");
-  return;
-}
+      // Verify that the session was stored
+      const session = getSession();
+
+      if (!session || session.role !== "admin") {
+        setMessage("Unable to create a secure session. Please try again.");
+        return;
+      }
+
+      setMessage("");
+      router.push("/admin-dashboard");
+      return;
+    }
 
     // Record failed login attempt
     const remainingAttempts = recordFailedLogin(id);
+
     recordAuditEvent({
-  userId: id,
-  userRole: "admin",
-  action: "LOGIN",
-  details: "Failed administrator login attempt.",
-  status: "DENIED",
-});
+      userId: id,
+      userRole: "admin",
+      action: "LOGIN",
+      details: "Failed administrator login attempt.",
+      status: "DENIED",
+    });
 
     if (remainingAttempts <= 0) {
-
       recordAuditEvent({
-  userId: id,
-  userRole: "admin",
-  action: "ACCOUNT_LOCKED",
-  details: "Administrator account locked after five failed login attempts.",
-  status: "DENIED",
-});
+        userId: id,
+        userRole: "admin",
+        action: "ACCOUNT_LOCKED",
+        details:
+          "Administrator account locked after five failed login attempts.",
+        status: "DENIED",
+      });
+
       setMessage(
         "Too many failed attempts. Your account is locked for 1 minute."
       );
@@ -87,6 +102,7 @@ export default function AdminLogin() {
         padding: "40px",
         maxWidth: "400px",
         margin: "auto",
+        fontFamily: "Arial, sans-serif",
       }}
     >
       <h1>Administrator Login</h1>
@@ -94,12 +110,14 @@ export default function AdminLogin() {
       <p>University Grade Portal</p>
 
       <form onSubmit={handleLogin}>
-        <label>Administrator ID</label>
+        <label htmlFor="adminId">Administrator ID</label>
 
         <input
+          id="adminId"
           value={adminId}
           onChange={(e) => setAdminId(e.target.value)}
           placeholder="Enter administrator ID"
+          autoComplete="username"
           required
           style={{
             display: "block",
@@ -110,13 +128,15 @@ export default function AdminLogin() {
           }}
         />
 
-        <label>Password</label>
+        <label htmlFor="password">Password</label>
 
         <input
+          id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter password"
+          autoComplete="current-password"
           required
           style={{
             display: "block",
@@ -127,13 +147,25 @@ export default function AdminLogin() {
           }}
         />
 
-        <button type="submit">
+        <button
+          type="submit"
+          style={{
+            padding: "10px 20px",
+            cursor: "pointer",
+          }}
+        >
           Login
         </button>
       </form>
 
       {message && (
-        <p style={{ color: "red", marginTop: "15px" }}>
+        <p
+          role="alert"
+          style={{
+            color: "red",
+            marginTop: "15px",
+          }}
+        >
           {message}
         </p>
       )}

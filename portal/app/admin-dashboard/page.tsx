@@ -9,47 +9,19 @@ import { hasPermission } from "../../lib/permissions";
 import { demoUsers } from "../../lib/demo-users";
 import { getSession, clearSession } from "../../lib/sessions";
 
+type ManagedUser = {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+};
+
 export default function AdminDashboard() {
   const router = useRouter();
 
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-
-  useEffect(() => {
-    const session = getSession();
-
-    if (!session || session.role !== "admin") {
-      router.replace("/admin-login");
-      return;
-    }
-
-    setIsCheckingSession(false);
-  }, [router]);
-  function handleLogout() {
-  clearSession();
-  router.replace("/");
-}
-
-  const currentAdmin = demoUsers.find(
-    (user) => user.role === "admin"
-  );
-
-  const canManageAccounts = currentAdmin
-    ? hasPermission(currentAdmin.role, "manage_users")
-    : false;
-
-  const canApprove = currentAdmin
-    ? hasPermission(currentAdmin.role, "approve_registrations")
-    : false;
-
-  const canAssignRoles = currentAdmin
-    ? hasPermission(currentAdmin.role, "assign_roles")
-    : false;
-
-  const canViewEvents = currentAdmin
-    ? hasPermission(currentAdmin.role, "view_security_events")
-    : false;
-
-  const [users, setUsers] = useState([
+  const [adminId, setAdminId] = useState("");
+  const [users, setUsers] = useState<ManagedUser[]>([
     {
       id: "2021001",
       name: "Ahmed Ali",
@@ -77,18 +49,93 @@ export default function AdminDashboard() {
   ]);
 
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
 
-  function approveUser(id: string) {
-    if (!canApprove) {
+  // Verify administrator session
+  useEffect(() => {
+    const session = getSession();
+
+    if (!session || session.role !== "admin") {
+      router.replace("/admin-login");
+      return;
+    }
+
+    const adminExists = demoUsers.some(
+      (user) =>
+        user.id === session.userId &&
+        user.role === "admin"
+    );
+
+    if (!adminExists) {
+      clearSession();
+      router.replace("/admin-login");
+      return;
+    }
+
+    setAdminId(session.userId);
+    setIsCheckingSession(false);
+  }, [router]);
+
+  // Identify the authenticated administrator
+  const currentAdmin = demoUsers.find(
+    (user) =>
+      user.id === adminId &&
+      user.role === "admin"
+  );
+
+  const canManageAccounts = currentAdmin
+    ? hasPermission(currentAdmin.role, "manage_users")
+    : false;
+
+  const canApprove = currentAdmin
+    ? hasPermission(currentAdmin.role, "approve_registrations")
+    : false;
+
+  const canAssignRoles = currentAdmin
+    ? hasPermission(currentAdmin.role, "assign_roles")
+    : false;
+
+  const canViewEvents = currentAdmin
+    ? hasPermission(currentAdmin.role, "view_security_events")
+    : false;
+
+  // Logout
+  function handleLogout() {
+    if (currentAdmin) {
       recordAuditEvent({
-        userId: currentAdmin?.id ?? "UNKNOWN",
+        userId: currentAdmin.id,
+        userRole: "admin",
+        action: "LOGOUT",
+        details: "Administrator logged out",
+        status: "SUCCESS",
+      });
+    }
+
+    clearSession();
+    router.replace("/");
+  }
+
+  // Approve a pending registration
+  function approveUser(id: string) {
+    if (!currentAdmin || !canApprove) {
+      recordAuditEvent({
+        userId: adminId || "UNKNOWN",
         userRole: "admin",
         action: "APPROVE_REGISTRATION",
         details: `Unauthorized attempt to approve user ${id}`,
         status: "DENIED",
       });
 
+      setMessageType("error");
       setMessage("Access denied: You cannot approve users.");
+      return;
+    }
+
+    const targetUser = users.find((user) => user.id === id);
+
+    if (!targetUser || targetUser.status !== "Pending") {
+      setMessageType("error");
+      setMessage("This user is not awaiting approval.");
       return;
     }
 
@@ -101,16 +148,18 @@ export default function AdminDashboard() {
     );
 
     recordAuditEvent({
-      userId: currentAdmin?.id ?? "UNKNOWN",
+      userId: currentAdmin.id,
       userRole: "admin",
       action: "APPROVE_REGISTRATION",
       details: `Approved registration for user ${id}`,
       status: "SUCCESS",
     });
 
-    setMessage("Demo: User approval updated successfully.");
+    setMessageType("success");
+    setMessage(`Registration for ${targetUser.name} approved successfully.`);
   }
 
+  // Dashboard statistics
   const totalStudents = users.filter(
     (user) => user.role === "Student"
   ).length;
@@ -124,7 +173,7 @@ export default function AdminDashboard() {
   ).length;
 
   if (isCheckingSession) {
-    return <p>Checking access...</p>;
+    return <p>Checking administrator access...</p>;
   }
 
   return (
@@ -138,24 +187,25 @@ export default function AdminDashboard() {
     >
       <h1>Administrator Dashboard</h1>
 
-      <button
-  onClick={handleLogout}
-  style={{
-    padding: "10px 18px",
-    backgroundColor: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    marginTop: "10px",
-  }}
->
-  Logout
-</button>
-
       <p>
+        Welcome, {currentAdmin?.name}.
         Manage university portal accounts and permissions.
       </p>
+
+      <button
+        onClick={handleLogout}
+        style={{
+          padding: "10px 18px",
+          backgroundColor: "#dc2626",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          marginTop: "10px",
+        }}
+      >
+        Logout
+      </button>
 
       {/* Dashboard statistics */}
       <section
@@ -238,13 +288,19 @@ export default function AdminDashboard() {
 
           {canAssignRoles && (
             <p style={{ marginTop: "20px" }}>
-              Role assignment is available to administrators.
-              The role-editing function will be connected later.
+              Role assignment is reserved for administrators.
+              Role editing is not yet implemented in this prototype.
             </p>
           )}
 
           {message && (
-            <p style={{ color: "green", marginTop: "15px" }}>
+            <p
+              style={{
+                color: messageType === "success" ? "green" : "red",
+                marginTop: "15px",
+                fontWeight: "bold",
+              }}
+            >
               {message}
             </p>
           )}
@@ -255,8 +311,6 @@ export default function AdminDashboard() {
       {canViewEvents && (
         <section style={sectionStyle}>
           <h2>Security Management</h2>
-
-          <p>Manage user accounts and course assignments.</p>
 
           <p>
             Review login attempts and recent security events.

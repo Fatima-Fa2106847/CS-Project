@@ -36,5 +36,9 @@ export function hasPermission(
   role: UserRole,
   permission: Permission
 ): boolean {
-  return rolePermissions[role]?.includes(permission) ?? false;
+  if (!["student", "instructor", "admin"].includes(role)) {
+    return false;
+  }
+
+  return rolePermissions[role].includes(permission);
 }

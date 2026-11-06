@@ -7,39 +7,114 @@ type LoginAttempt = {
   lockedUntil: number;
 };
 
+function getStorageKey(userId: string): string {
+  return `login_${userId.trim().toUpperCase()}`;
+}
+
+// Read and validate stored login attempts
+function getLoginData(userId: string): LoginAttempt {
+  if (typeof window === "undefined") {
+    return { attempts: 0, lockedUntil: 0 };
+  }
+
+  try {
+    const stored = localStorage.getItem(getStorageKey(userId));
+
+    if (!stored) {
+      return { attempts: 0, lockedUntil: 0 };
+    }
+
+    const data = JSON.parse(stored);
+
+    if (
+      data === null ||
+      typeof data !== "object" ||
+      !Number.isInteger(data.attempts) ||
+      data.attempts < 0 ||
+      data.attempts > MAX_ATTEMPTS ||
+      !Number.isFinite(data.lockedUntil) ||
+      data.lockedUntil < 0
+    ) {
+      localStorage.removeItem(getStorageKey(userId));
+      return { attempts: 0, lockedUntil: 0 };
+    }
+
+    return data as LoginAttempt;
+  } catch {
+    return { attempts: 0, lockedUntil: 0 };
+  }
+}
+
+// Check whether an account is currently locked
 export function isAccountLocked(userId: string): boolean {
-  const stored = localStorage.getItem(`login_${userId}`);
-
-  if (!stored) return false;
-
-  const data: LoginAttempt = JSON.parse(stored);
-
-  if (Date.now() >= data.lockedUntil && data.lockedUntil !== 0) {
-    localStorage.removeItem(`login_${userId}`);
+  if (
+    typeof window === "undefined" ||
+    typeof userId !== "string" ||
+    !userId.trim()
+  ) {
     return false;
   }
 
-  return data.lockedUntil > Date.now();
+  const data = getLoginData(userId);
+
+  if (data.lockedUntil === 0) return false;
+
+  if (Date.now() >= data.lockedUntil) {
+    try {
+      localStorage.removeItem(getStorageKey(userId));
+    } catch {
+      // Storage may be unavailable.
+    }
+
+    return false;
+  }
+
+  return true;
 }
 
+// Record a failed login attempt
 export function recordFailedLogin(userId: string): number {
-  const stored = localStorage.getItem(`login_${userId}`);
+  if (
+    typeof window === "undefined" ||
+    typeof userId !== "string" ||
+    !userId.trim()
+  ) {
+    return 0;
+  }
 
-  const data: LoginAttempt = stored
-    ? JSON.parse(stored)
-    : { attempts: 0, lockedUntil: 0 };
+  if (isAccountLocked(userId)) return 0;
 
-  data.attempts += 1;
+  const data = getLoginData(userId);
+
+  data.attempts = Math.min(data.attempts + 1, MAX_ATTEMPTS);
 
   if (data.attempts >= MAX_ATTEMPTS) {
     data.lockedUntil = Date.now() + LOCKOUT_DURATION;
   }
 
-  localStorage.setItem(`login_${userId}`, JSON.stringify(data));
+  try {
+    localStorage.setItem(
+      getStorageKey(userId),
+      JSON.stringify(data)
+    );
+  } catch {
+    // Storage may be unavailable.
+  }
 
   return MAX_ATTEMPTS - data.attempts;
 }
 
-export function resetLoginAttempts(userId: string) {
-  localStorage.removeItem(`login_${userId}`);
+// Reset failed attempts after successful login
+export function resetLoginAttempts(userId: string): void {
+  if (
+    typeof window !== "undefined" &&
+    typeof userId === "string" &&
+    userId.trim()
+  ) {
+    try {
+      localStorage.removeItem(getStorageKey(userId));
+    } catch {
+      // Storage may be unavailable.
+    }
+  }
 }

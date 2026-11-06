@@ -2,8 +2,11 @@
 import {
   canViewGrade,
   canEditGrade,
+  canAccessCourse,
   canManageUsers,
   canApproveRegistration,
+  canAssignRoles,
+  isValidGrade,
 } from "./access-control";
 
 import { demoUsers } from "./demo-users";
@@ -47,6 +50,31 @@ const tests = [
     actual: canEditGrade(instructor, "CS380"),
   },
   {
+    name: "Instructor cannot edit unassigned course grades",
+    expected: false,
+    actual: canEditGrade(instructor, "CS450"),
+  },
+  {
+    name: "Student cannot edit grades",
+    expected: false,
+    actual: canEditGrade(ahmed, "CS380"),
+  },
+  {
+    name: "Student can access enrolled course",
+    expected: true,
+    actual: canAccessCourse(ahmed, "CS380"),
+  },
+  {
+    name: "Student cannot access unregistered course",
+    expected: false,
+    actual: canAccessCourse(sara, "CS301"),
+  },
+  {
+    name: "Instructor can access assigned course",
+    expected: true,
+    actual: canAccessCourse(instructor, "CS301"),
+  },
+  {
     name: "Admin can manage users",
     expected: true,
     actual: canManageUsers(admin),
@@ -56,12 +84,36 @@ const tests = [
     expected: true,
     actual: canApproveRegistration(admin),
   },
+  {
+    name: "Admin can assign roles",
+    expected: true,
+    actual: canAssignRoles(admin),
+  },
+  {
+    name: "Instructor cannot assign roles",
+    expected: false,
+    actual: canAssignRoles(instructor),
+  },
+  {
+    name: "Valid grades are accepted",
+    expected: true,
+    actual: isValidGrade(18, 42),
+  },
+  {
+    name: "Grades above the allowed maximum are rejected",
+    expected: false,
+    actual: isValidGrade(25, 55),
+  },
 ];
+
+let passedCount = 0;
 
 tests.forEach((test) => {
   const passed = test.actual === test.expected;
 
-  console.log(
-    `${passed ? "PASS" : "FAIL"}: ${test.name}`
-  );
+  if (passed) passedCount++;
+
+  console.log(`${passed ? "PASS" : "FAIL"}: ${test.name}`);
 });
+
+console.log(`\nResults: ${passedCount}/${tests.length} tests passed.`);
