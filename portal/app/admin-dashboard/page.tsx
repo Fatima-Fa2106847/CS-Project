@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { recordAuditEvent } from "../../lib/audit-log";
 import {
   hasPermission,
 } from "../../lib/permissions";
@@ -57,22 +58,40 @@ export default function AdminDashboard() {
 
   const [message, setMessage] = useState("");
 
-  function approveUser(id: string) {
-    if (!canApprove) {
-      setMessage("Access denied: You cannot approve users.");
-      return;
-    }
+ 
+function approveUser(id: string) {
+  if (!canApprove) {
+    recordAuditEvent({
+      userId: currentAdmin?.id ?? "UNKNOWN",
+      userRole: "admin",
+      action: "APPROVE_REGISTRATION",
+      details: `Unauthorized attempt to approve user ${id}`,
+      status: "DENIED",
+    });
 
-    setUsers((previous) =>
-      previous.map((user) =>
-        user.id === id
-          ? { ...user, status: "Active" }
-          : user
-      )
-    );
-
-    setMessage("Demo: User approval updated successfully.");
+    setMessage("Access denied: You cannot approve users.");
+    return;
   }
+
+  setUsers((previous) =>
+    previous.map((user) =>
+      user.id === id
+        ? { ...user, status: "Active" }
+        : user
+    )
+  );
+
+  recordAuditEvent({
+    userId: currentAdmin?.id ?? "UNKNOWN",
+    userRole: "admin",
+    action: "APPROVE_REGISTRATION",
+    details: `Approved registration for user ${id}`,
+    status: "SUCCESS",
+  });
+
+  setMessage("Demo: User approval updated successfully.");
+}
+
 
   const totalStudents = users.filter(
     (user) => user.role === "Student"
@@ -205,7 +224,20 @@ export default function AdminDashboard() {
           <p>
             Review login attempts and recent security events.
           </p>
-
+<a
+  href="/admin-dashboard/audit-logs"
+  style={{
+    display: "inline-block",
+    marginTop: "15px",
+    padding: "10px 18px",
+    backgroundColor: "#1d4ed8",
+    color: "white",
+    textDecoration: "none",
+    borderRadius: "6px",
+  }}
+>
+  View Audit Logs
+</a>
           <p>
             <strong>
               Administrators cannot access student grade values.

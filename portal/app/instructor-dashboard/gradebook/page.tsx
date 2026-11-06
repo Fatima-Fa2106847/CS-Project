@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { canEditGrade } from "../../../lib/access-control";
 import { demoUsers } from "../../../lib/demo-users";
+import { recordAuditEvent } from "../../../lib/audit-log";
 
 export default function GradebookPage() {
   const demoInstructor = demoUsers.find(
@@ -23,20 +24,66 @@ const canEdit = demoInstructor
 
   const [message, setMessage] = useState("");
 
-  function updateGrade(
-    id: string,
-    field: "assignment" | "exam",
-    value: number
-  ) {
-    setStudents((previous) =>
-      previous.map((student) =>
-        student.id === id
-          ? { ...student, [field]: value }
-          : student
-      )
-    );
-    setMessage("");
+  
+function updateGrade(
+  id: string,
+  field: "assignment" | "exam",
+  value: number
+) {
+  const student = students.find((s) => s.id === id);
+
+  if (!canEdit) {
+    recordAuditEvent({
+      userId: demoInstructor?.id ?? "UNKNOWN",
+      userRole: "instructor",
+      action: "EDIT_GRADE",
+      details: `Unauthorized attempt to edit ${field} grade for student ${id}`,
+      status: "DENIED",
+    });
+
+    setMessage("Access denied: You cannot edit this course.");
+    return;
   }
+
+  if (!student) {
+    setMessage("Student not found.");
+    return;
+  }
+
+  const oldValue = student[field];
+
+  const newAssignment =
+    field === "assignment" ? value : student.assignment;
+
+  const newExam =
+    field === "exam" ? value : student.exam;
+
+  if (
+    !Number.isFinite(value) ||
+    (field === "assignment" && (value < 0 || value > 20)) ||
+    (field === "exam" && (value < 0 || value > 50))
+  ) {
+    setMessage("Invalid grade. Please enter a valid grade.");
+    return;
+  }
+
+  setStudents((previous) =>
+    previous.map((s) =>
+      s.id === id ? { ...s, [field]: value } : s
+    )
+  );
+
+  recordAuditEvent({
+    userId: demoInstructor?.id ?? "UNKNOWN",
+    userRole: "instructor",
+    action: "EDIT_GRADE",
+    details: `Changed ${field} grade for student ${id} in CS380 from ${oldValue} to ${value}`,
+    status: "SUCCESS",
+  });
+
+  setMessage("Grade updated successfully in the demo.");
+}
+
 
   function saveGrades() 
      {
