@@ -11,6 +11,7 @@ import {
   recordFailedLogin,
   resetLoginAttempts,
 } from "../../lib/login-security";
+import { recordAuditEvent } from "../../lib/audit-log";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -34,19 +35,42 @@ export default function AdminLogin() {
 
     // Validate administrator credentials
     if (id === "ADMIN001" && password === "admin123") {
-      resetLoginAttempts(id);
+  resetLoginAttempts(id);
 
-      createSession("ADMIN001", "admin");
+  recordAuditEvent({
+    userId: id,
+    userRole: "admin",
+    action: "LOGIN",
+    details: "Administrator successfully logged in.",
+    status: "SUCCESS",
+  });
 
-      setMessage("");
-      router.push("/admin-dashboard");
-      return;
-    }
+  createSession("ADMIN001", "admin");
+
+  setMessage("");
+  router.push("/admin-dashboard");
+  return;
+}
 
     // Record failed login attempt
     const remainingAttempts = recordFailedLogin(id);
+    recordAuditEvent({
+  userId: id,
+  userRole: "admin",
+  action: "LOGIN",
+  details: "Failed administrator login attempt.",
+  status: "DENIED",
+});
 
     if (remainingAttempts <= 0) {
+
+      recordAuditEvent({
+  userId: id,
+  userRole: "admin",
+  action: "ACCOUNT_LOCKED",
+  details: "Administrator account locked after five failed login attempts.",
+  status: "DENIED",
+});
       setMessage(
         "Too many failed attempts. Your account is locked for 1 minute."
       );

@@ -3,6 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { recordAuditEvent } from "../../lib/audit-log";
 
 import {
   isAccountLocked,
@@ -34,13 +35,21 @@ export default function LoginPage() {
     const id = universityId.trim();
 
     // Check whether the account is locked
-    if (isAccountLocked(id)) {
-      setMessage(
-        "Account temporarily locked. Please try again after 1 minute."
-      );
-      return;
-    }
+   if (id === "2021001" && password === "student123") {
+  resetLoginAttempts(id);
 
+  recordAuditEvent({
+    userId: id,
+    userRole: "student",
+    action: "LOGIN",
+    details: "Student successfully logged in.",
+    status: "SUCCESS",
+  });
+
+  setMessage("");
+  router.push("/verify");
+  return;
+}
     // Demo credential validation
     if (id === "2021001" && password === "student123") {
       resetLoginAttempts(id);
@@ -52,8 +61,22 @@ export default function LoginPage() {
 
     // Record incorrect login attempt
     const remainingAttempts = recordFailedLogin(id);
+    recordAuditEvent({
+  userId: id,
+  userRole: "student",
+  action: "LOGIN",
+  details: "Failed student login attempt.",
+  status: "DENIED",
+});
 
     if (remainingAttempts <= 0) {
+      recordAuditEvent({
+  userId: id,
+  userRole: "student",
+  action: "ACCOUNT_LOCKED",
+  details: "Account locked after five failed login attempts.",
+  status: "DENIED",
+});
       setMessage(
         "Too many failed attempts. Your account is locked for 1 minute."
       );

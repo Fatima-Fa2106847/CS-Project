@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { recordAuditEvent } from "../../lib/audit-log";
 
 import {
   isAccountLocked,
@@ -42,17 +43,40 @@ export default function InstructorLogin() {
 
     // Demo credential validation
     if (id === "INS001" && password === "instructor123") {
-      resetLoginAttempts(id);
-      setMessage("");
+  resetLoginAttempts(id);
 
-      router.push("/verify-instructor");
-      return;
-    }
+  recordAuditEvent({
+    userId: id,
+    userRole: "instructor",
+    action: "LOGIN",
+    details: "Instructor successfully logged in.",
+    status: "SUCCESS",
+  });
+
+  setMessage("");
+  router.push("/verify-instructor");
+  return;
+}
 
     // Record failed login attempt
     const remainingAttempts = recordFailedLogin(id);
+    recordAuditEvent({
+  userId: id,
+  userRole: "instructor",
+  action: "LOGIN",
+  details: "Failed instructor login attempt.",
+  status: "DENIED",
+});
 
     if (remainingAttempts <= 0) {
+recordAuditEvent({
+  userId: id,
+  userRole: "instructor",
+  action: "ACCOUNT_LOCKED",
+  details: "Instructor account locked after five failed login attempts.",
+  status: "DENIED",
+});
+
       setMessage(
         "Too many failed attempts. Your account is locked for 1 minute."
       );
