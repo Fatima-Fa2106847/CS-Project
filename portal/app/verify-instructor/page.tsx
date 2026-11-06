@@ -2,6 +2,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { createSession } from "../../lib/sessions";
 
 export default function VerifyInstructorPage() {
   const router = useRouter();
@@ -30,7 +31,10 @@ export default function VerifyInstructorPage() {
       </div>
 
       <button
-        onClick={() => router.push("/instructor-dashboard")}
+        onClick={() => {
+  createSession("INS001", "instructor");
+  router.push("/instructor-dashboard");
+}}
         style={{
           width: "100%",
           padding: "12px",

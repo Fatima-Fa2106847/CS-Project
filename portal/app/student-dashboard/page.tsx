@@ -1,64 +1,79 @@
 
 "use client";
+
 import Link from "next/link";
 import { canViewGrade } from "../../lib/access-control";
 import { demoUsers } from "../../lib/demo-users";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession } from "../../lib/sessions";
+import { getSession, clearSession } from "../../lib/sessions";
 
 export default function StudentDashboard() {
   const router = useRouter();
-const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-useEffect(() => {
-  const session = getSession();
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  if (!session || session.role !== "student") {
-    router.replace("/login");
-    return;
+  // Check student session and role
+  useEffect(() => {
+    const session = getSession();
+
+    if (!session || session.role !== "student") {
+      router.replace("/login");
+      return;
+    }
+
+    setIsCheckingSession(false);
+  }, [router]);
+
+  // Logout function
+  function handleLogout() {
+    clearSession();
+    router.replace("/");
   }
 
-  setIsCheckingSession(false);
-}, [router]);
+  // Show loading message while checking access
+  if (isCheckingSession) {
+    return <p>Checking access...</p>;
+  }
 
-if (isCheckingSession) {
-  return <p>Checking access...</p>;
-}
+  // Demo course information
   const courses = [
-  {
-    studentId: "2021001",
-    code: "CS380",
-    name: "Cybersecurity Fundamentals",
-    grade: "A-",
-  },
-  {
-    studentId: "2021001",
-    code: "CS301",
-    name: "Operating Systems",
-    grade: "B+",
-  },
-  {
-    studentId: "2021001",
-    code: "MATH231",
-    name: "Linear Algebra",
-    grade: "A",
-  },
-];
-const currentStudent = demoUsers.find(
-  (user) => user.id === "2021001"
-);
+    {
+      studentId: "2021001",
+      code: "CS380",
+      name: "Cybersecurity Fundamentals",
+      grade: "A-",
+    },
+    {
+      studentId: "2021001",
+      code: "CS301",
+      name: "Operating Systems",
+      grade: "B+",
+    },
+    {
+      studentId: "2021001",
+      code: "MATH231",
+      name: "Linear Algebra",
+      grade: "A",
+    },
+  ];
 
-const visibleCourses = currentStudent
-  ? courses.filter((course) =>
-      canViewGrade(currentStudent, {
-        studentId: course.studentId,
-        courseId: course.code,
-        assignmentGrade: 0,
-        examGrade: 0,
-      })
-    )
-  : [];
+  // Identify the demo student
+  const currentStudent = demoUsers.find(
+    (user) => user.id === "2021001"
+  );
+
+  // Filter courses according to student permissions
+  const visibleCourses = currentStudent
+    ? courses.filter((course) =>
+        canViewGrade(currentStudent, {
+          studentId: course.studentId,
+          courseId: course.code,
+          assignmentGrade: 0,
+          examGrade: 0,
+        })
+      )
+    : [];
 
   return (
     <main
@@ -70,8 +85,26 @@ const visibleCourses = currentStudent
       }}
     >
       <h1>Student Dashboard</h1>
+
       <p>Welcome! Here are your published grades.</p>
 
+      {/* Logout button */}
+      <button
+        onClick={handleLogout}
+        style={{
+          padding: "10px 18px",
+          backgroundColor: "#dc2626",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          marginTop: "10px",
+        }}
+      >
+        Logout
+      </button>
+
+      {/* Student courses and grades */}
       <section
         style={{
           marginTop: "30px",
@@ -82,24 +115,55 @@ const visibleCourses = currentStudent
       >
         <h2>My Courses</h2>
 
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+          }}
+        >
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "12px" }}>Course</th>
-              <th style={{ textAlign: "left", padding: "12px" }}>Name</th>
-              <th style={{ textAlign: "left", padding: "12px" }}>Grade</th>
+              <th style={{ textAlign: "left", padding: "12px" }}>
+                Course
+              </th>
+
+              <th style={{ textAlign: "left", padding: "12px" }}>
+                Name
+              </th>
+
+              <th style={{ textAlign: "left", padding: "12px" }}>
+                Grade
+              </th>
             </tr>
           </thead>
+
           <tbody>
             {visibleCourses.map((course) => (
               <tr key={course.code}>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
+                <td
+                  style={{
+                    padding: "12px",
+                    borderTop: "1px solid #ddd",
+                  }}
+                >
                   {course.code}
                 </td>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
+
+                <td
+                  style={{
+                    padding: "12px",
+                    borderTop: "1px solid #ddd",
+                  }}
+                >
                   {course.name}
                 </td>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
+
+                <td
+                  style={{
+                    padding: "12px",
+                    borderTop: "1px solid #ddd",
+                  }}
+                >
                   {course.grade}
                 </td>
               </tr>
@@ -109,7 +173,7 @@ const visibleCourses = currentStudent
       </section>
 
       <p style={{ marginTop: "24px" }}>
-        <Link href="/">Log out</Link>
+        <Link href="/">Return to Homepage</Link>
       </p>
     </main>
   );

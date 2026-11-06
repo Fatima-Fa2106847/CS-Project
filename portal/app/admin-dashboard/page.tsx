@@ -1,14 +1,34 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 import { recordAuditEvent } from "../../lib/audit-log";
-import {
-  hasPermission,
-} from "../../lib/permissions";
+import { hasPermission } from "../../lib/permissions";
 import { demoUsers } from "../../lib/demo-users";
+import { getSession, clearSession } from "../../lib/sessions";
 
 export default function AdminDashboard() {
+  const router = useRouter();
+
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const session = getSession();
+
+    if (!session || session.role !== "admin") {
+      router.replace("/admin-login");
+      return;
+    }
+
+    setIsCheckingSession(false);
+  }, [router]);
+  function handleLogout() {
+  clearSession();
+  router.replace("/");
+}
+
   const currentAdmin = demoUsers.find(
     (user) => user.role === "admin"
   );
@@ -58,40 +78,38 @@ export default function AdminDashboard() {
 
   const [message, setMessage] = useState("");
 
- 
-function approveUser(id: string) {
-  if (!canApprove) {
+  function approveUser(id: string) {
+    if (!canApprove) {
+      recordAuditEvent({
+        userId: currentAdmin?.id ?? "UNKNOWN",
+        userRole: "admin",
+        action: "APPROVE_REGISTRATION",
+        details: `Unauthorized attempt to approve user ${id}`,
+        status: "DENIED",
+      });
+
+      setMessage("Access denied: You cannot approve users.");
+      return;
+    }
+
+    setUsers((previous) =>
+      previous.map((user) =>
+        user.id === id
+          ? { ...user, status: "Active" }
+          : user
+      )
+    );
+
     recordAuditEvent({
       userId: currentAdmin?.id ?? "UNKNOWN",
       userRole: "admin",
       action: "APPROVE_REGISTRATION",
-      details: `Unauthorized attempt to approve user ${id}`,
-      status: "DENIED",
+      details: `Approved registration for user ${id}`,
+      status: "SUCCESS",
     });
 
-    setMessage("Access denied: You cannot approve users.");
-    return;
+    setMessage("Demo: User approval updated successfully.");
   }
-
-  setUsers((previous) =>
-    previous.map((user) =>
-      user.id === id
-        ? { ...user, status: "Active" }
-        : user
-    )
-  );
-
-  recordAuditEvent({
-    userId: currentAdmin?.id ?? "UNKNOWN",
-    userRole: "admin",
-    action: "APPROVE_REGISTRATION",
-    details: `Approved registration for user ${id}`,
-    status: "SUCCESS",
-  });
-
-  setMessage("Demo: User approval updated successfully.");
-}
-
 
   const totalStudents = users.filter(
     (user) => user.role === "Student"
@@ -105,6 +123,10 @@ function approveUser(id: string) {
     (user) => user.status === "Pending"
   ).length;
 
+  if (isCheckingSession) {
+    return <p>Checking access...</p>;
+  }
+
   return (
     <main
       style={{
@@ -115,6 +137,21 @@ function approveUser(id: string) {
       }}
     >
       <h1>Administrator Dashboard</h1>
+
+      <button
+  onClick={handleLogout}
+  style={{
+    padding: "10px 18px",
+    backgroundColor: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    marginTop: "10px",
+  }}
+>
+  Logout
+</button>
 
       <p>
         Manage university portal accounts and permissions.
@@ -224,20 +261,22 @@ function approveUser(id: string) {
           <p>
             Review login attempts and recent security events.
           </p>
-<a
-  href="/admin-dashboard/audit-logs"
-  style={{
-    display: "inline-block",
-    marginTop: "15px",
-    padding: "10px 18px",
-    backgroundColor: "#1d4ed8",
-    color: "white",
-    textDecoration: "none",
-    borderRadius: "6px",
-  }}
->
-  View Audit Logs
-</a>
+
+          <a
+            href="/admin-dashboard/audit-logs"
+            style={{
+              display: "inline-block",
+              marginTop: "15px",
+              padding: "10px 18px",
+              backgroundColor: "#1d4ed8",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "6px",
+            }}
+          >
+            View Audit Logs
+          </a>
+
           <p>
             <strong>
               Administrators cannot access student grade values.
