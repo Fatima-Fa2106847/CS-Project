@@ -1,4 +1,4 @@
-
+import Link from "next/link";
 export default function InstructorDashboard() {
   const courses = [
     { code: "CS380", name: "Cybersecurity Fundamentals", students: 32 },
@@ -52,6 +52,13 @@ export default function InstructorDashboard() {
           </tbody>
         </table>
       </section>
+      <div style={{ marginTop: "25px" }}>
+  <Link href="/instructor-dashboard/gradebook">
+    <button style={{ padding: "12px 24px" }}>
+      View Gradebook
+    </button>
+  </Link>
+</div>
     </main>
   );
 }
