@@ -1,8 +1,41 @@
+
 @import "tailwindcss";
 
+/* =========================================
+   UNIPORTAL - GLOBAL DESIGN SYSTEM
+   Deep Burgundy | Gold | Ivory
+========================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #70152f;
+  --primary-dark: #4f0d23;
+  --primary-light: #8b2945;
+
+  --accent: #c6a15b;
+  --accent-light: #e5d2a9;
+
+  --background: #f7f4f0;
+  --surface: #ffffff;
+  --surface-soft: #f1ece8;
+
+  --foreground: #29252a;
+  --text-secondary: #716970;
+  --text-light: #ffffff;
+
+  --success: #23845b;
+  --danger: #c03945;
+  --warning: #c18a32;
+  --info: #3975a5;
+
+  --border: #d9c9c7;
+  --border-strong: #70152f;
+
+  --shadow: 0 5px 20px rgba(67, 28, 43, 0.09);
+  --shadow-hover: 0 10px 28px rgba(67, 28, 43, 0.15);
+
+  --radius-sm: 7px;
+  --radius-md: 13px;
+  --radius-lg: 20px;
 }
 
 @theme inline {
@@ -12,15 +45,430 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =========================================
+   GLOBAL RESET
+========================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--primary-dark);
+  line-height: 1.3;
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: var(--primary-light);
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* =========================================
+   FORM ELEMENTS
+========================================= */
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--foreground);
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(198, 161, 91, 0.18);
+  outline: none;
+}
+
+/* =========================================
+   TABLES
+========================================= */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  background: var(--surface-soft);
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+th,
+td {
+  padding: 13px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+tbody tr:hover {
+  background: #faf7f4;
+}
+
+/* =========================================
+   REUSABLE PORTAL COMPONENTS
+========================================= */
+
+.portal-container {
+  width: min(1100px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.portal-card {
+  padding: 24px;
+  background: var(--surface);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.portal-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.portal-button {
+  padding: 11px 20px;
+  color: white;
+  background: var(--primary);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+}
+
+.portal-button:hover {
+  color: var(--primary);
+  background: white;
+  border-color: var(--primary);
+}
+
+.portal-button-secondary {
+  padding: 11px 20px;
+  color: var(--primary-dark);
+  background: var(--accent);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+}
+
+.portal-button-secondary:hover {
+  background: var(--accent-light);
+}
+
+.portal-header {
+  padding: 20px 32px;
+  color: white;
+  background: var(--primary-dark);
+  border-bottom: 4px solid var(--accent);
+}
+
+.portal-status-success {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.portal-status-danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* =========================================
+   UNIPORTAL HOMEPAGE
+========================================= */
+
+.home-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 38px 24px;
+  background:
+    radial-gradient(
+      circle at top left,
+      #eee0df,
+      transparent 38%
+    ),
+    var(--background);
+}
+
+.home-content {
+  width: 100%;
+  max-width: 1450px;
+  margin: auto;
+  text-align: center;
+}
+
+/* Logo */
+
+.home-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 15px;
+}
+
+.home-logo-icon {
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: white;
+  border: 4px solid var(--accent);
+  border-radius: 18px;
+  font-size: 44px;
+  font-weight: 900;
+}
+
+.home-logo h1 {
+  margin: 0;
+  color: var(--primary);
+  font-size: clamp(48px, 7vw, 76px);
+  font-weight: 900;
+  letter-spacing: -3px;
+}
+
+.home-divider {
+  width: 110px;
+  height: 6px;
+  margin: 24px auto 28px;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+.home-content h2 {
+  margin: 0 0 12px;
+  color: var(--primary-dark);
+  font-size: clamp(23px, 3vw, 34px);
+  font-weight: 900;
+}
+
+.home-description {
+  max-width: 650px;
+  margin: 0 auto;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+/* =========================================
+   THREE LOGIN CARDS - ONE ROW
+========================================= */
+
+.home-login-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+  align-items: stretch;
+}
+
+.home-login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 30px 23px;
+  background: var(--surface);
+  border: 3px solid var(--primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 7px 0 rgba(84, 19, 41, 0.10);
+  transition: all 0.25s ease;
+}
+
+.home-login-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-5px);
+}
+
+.home-card-icon {
+  margin-bottom: 12px;
+  font-size: 40px;
+}
+
+.home-login-card h3 {
+  margin: 0 0 10px;
+  color: var(--primary-dark);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.home-login-card p {
+  min-height: 52px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* Login buttons */
+
+.home-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: auto;
+  padding: 14px 12px;
+  color: var(--primary);
+  background: white;
+  border: 3px solid var(--primary);
+  border-radius: 11px;
+  font-size: 16px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.home-login-button:hover {
+  color: white;
+  background: var(--primary);
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 12px rgba(84, 19, 41, 0.18);
+}
+
+/* Footer */
+
+.home-footer {
+  margin-top: 38px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN
+========================================= */
+
+/* Keep all three cards in one row
+   on desktop and wider tablets. */
+
+@media (min-width: 701px) {
+  .home-login-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Stack cards only on smaller screens. */
+
+@media (max-width: 700px) {
+  .home-page {
+    padding: 32px 16px;
+  }
+
+  .home-login-options {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 30px;
+  }
+
+  .home-login-card {
+    padding: 26px 20px;
+  }
+
+  .home-logo {
+    gap: 12px;
+  }
+
+  .home-logo-icon {
+    width: 58px;
+    height: 58px;
+    font-size: 34px;
+  }
+
+  .home-logo h1 {
+    font-size: 46px;
+    letter-spacing: -2px;
+  }
+
+  .home-footer {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .portal-container {
+    width: calc(100% - 24px);
+  }
+
+  .portal-card {
+    padding: 18px;
+  }
+
+  .portal-header {
+    padding: 16px 20px;
+  }
+
+  table {
+    min-width: 600px;
+  }
 }
