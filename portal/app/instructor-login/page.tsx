@@ -4,10 +4,64 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  isAccountLocked,
+  recordFailedLogin,
+  resetLoginAttempts,
+} from "../../lib/login-security";
+
 export default function InstructorLogin() {
   const [universityId, setUniversityId] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
   const router = useRouter();
+
+  const inputStyle = {
+    display: "block",
+    width: "100%",
+    padding: "12px",
+    margin: "8px 0 20px",
+    boxSizing: "border-box" as const,
+    border: "1px solid #9ca3af",
+    borderRadius: "6px",
+  };
+
+  function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const id = universityId.trim();
+
+    // Check whether the instructor account is locked
+    if (isAccountLocked(id)) {
+      setMessage(
+        "Account temporarily locked. Please try again after 1 minute."
+      );
+      return;
+    }
+
+    // Demo credential validation
+    if (id === "INS001" && password === "instructor123") {
+      resetLoginAttempts(id);
+      setMessage("");
+
+      router.push("/verify-instructor");
+      return;
+    }
+
+    // Record failed login attempt
+    const remainingAttempts = recordFailedLogin(id);
+
+    if (remainingAttempts <= 0) {
+      setMessage(
+        "Too many failed attempts. Your account is locked for 1 minute."
+      );
+    } else {
+      setMessage(
+        `Incorrect University ID or password. ${remainingAttempts} attempts remaining.`
+      );
+    }
+  }
 
   return (
     <main
@@ -21,53 +75,54 @@ export default function InstructorLogin() {
       }}
     >
       <h1>Instructor Login</h1>
+
       <p>Sign in to manage your assigned courses.</p>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          router.push("/verify-instructor");
-        }}
-      >
+      <form onSubmit={handleLogin}>
         <label htmlFor="universityId">University ID</label>
+
         <input
           id="universityId"
           value={universityId}
           onChange={(event) => setUniversityId(event.target.value)}
           required
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "12px",
-            margin: "8px 0 20px",
-            boxSizing: "border-box",
-            border: "1px solid #9ca3af",
-            borderRadius: "6px",
-          }}
+          style={inputStyle}
         />
 
         <label htmlFor="password">Password</label>
+
         <input
           id="password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "12px",
-            margin: "8px 0 24px",
-            boxSizing: "border-box",
-            border: "1px solid #9ca3af",
-            borderRadius: "6px",
-          }}
+          style={inputStyle}
         />
 
-        <button type="submit" style={{ padding: "12px", width: "100%" }}>
+        <button
+          type="submit"
+          style={{
+            padding: "12px",
+            width: "100%",
+            cursor: "pointer",
+          }}
+        >
           Continue to Face Verification
         </button>
       </form>
+
+      {message && (
+        <p
+          style={{
+            marginTop: "18px",
+            color: "#dc2626",
+            fontWeight: "bold",
+          }}
+        >
+          {message}
+        </p>
+      )}
     </main>
   );
 }

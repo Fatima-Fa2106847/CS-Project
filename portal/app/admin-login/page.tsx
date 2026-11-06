@@ -3,50 +3,116 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { createSession } from "../../lib/sessions";
+
+import {
+  isAccountLocked,
+  recordFailedLogin,
+  resetLoginAttempts,
+} from "../../lib/login-security";
 
 export default function AdminLogin() {
   const router = useRouter();
+
   const [adminId, setAdminId] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  function handleLogin() {
-    if (adminId === "ADMIN001" && password === "admin123") {
+  function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const id = adminId.trim();
+
+    // Check whether the admin account is locked
+    if (isAccountLocked(id)) {
+      setMessage(
+        "Account temporarily locked. Please try again after 1 minute."
+      );
+      return;
+    }
+
+    // Validate administrator credentials
+    if (id === "ADMIN001" && password === "admin123") {
+      resetLoginAttempts(id);
+
       createSession("ADMIN001", "admin");
+
+      setMessage("");
       router.push("/admin-dashboard");
+      return;
+    }
+
+    // Record failed login attempt
+    const remainingAttempts = recordFailedLogin(id);
+
+    if (remainingAttempts <= 0) {
+      setMessage(
+        "Too many failed attempts. Your account is locked for 1 minute."
+      );
     } else {
-      setMessage("Invalid administrator ID or password.");
+      setMessage(
+        `Invalid administrator ID or password. ${remainingAttempts} attempts remaining.`
+      );
     }
   }
 
   return (
-    <main style={{ padding: "40px", maxWidth: "400px", margin: "auto" }}>
+    <main
+      style={{
+        padding: "40px",
+        maxWidth: "400px",
+        margin: "auto",
+      }}
+    >
       <h1>Administrator Login</h1>
+
       <p>University Grade Portal</p>
 
-      <label>Administrator ID</label>
-      <input
-        value={adminId}
-        onChange={(e) => setAdminId(e.target.value)}
-        placeholder="Enter administrator ID"
-        style={{ display: "block", width: "100%", padding: "10px", margin: "10px 0" }}
-      />
+      <form onSubmit={handleLogin}>
+        <label>Administrator ID</label>
 
-      <label>Password</label>
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Enter password"
-        style={{ display: "block", width: "100%", padding: "10px", margin: "10px 0" }}
-      />
+        <input
+          value={adminId}
+          onChange={(e) => setAdminId(e.target.value)}
+          placeholder="Enter administrator ID"
+          required
+          style={{
+            display: "block",
+            width: "100%",
+            padding: "10px",
+            margin: "10px 0",
+            boxSizing: "border-box",
+          }}
+        />
 
-      <button onClick={handleLogin}>
-        Login
-      </button>
+        <label>Password</label>
 
-      {message && <p style={{ color: "red" }}>{message}</p>}
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter password"
+          required
+          style={{
+            display: "block",
+            width: "100%",
+            padding: "10px",
+            margin: "10px 0",
+            boxSizing: "border-box",
+          }}
+        />
+
+        <button type="submit">
+          Login
+        </button>
+      </form>
+
+      {message && (
+        <p style={{ color: "red", marginTop: "15px" }}>
+          {message}
+        </p>
+      )}
     </main>
   );
 }
