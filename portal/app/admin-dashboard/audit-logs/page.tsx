@@ -6,8 +6,28 @@ import {
   getAuditEvents,
   type AuditEvent,
 } from "../../../lib/audit-log";
+import { useRouter } from "next/navigation";
+import { getSession } from "../../../lib/sessions";
 
 export default function AuditLogsPage() {
+const router = useRouter();
+const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+useEffect(() => {
+  const session = getSession();
+
+  if (!session || session.role !== "admin") {
+    router.replace("/admin-login");
+    return;
+  }
+
+  setIsCheckingSession(false);
+}, [router]);
+
+if (isCheckingSession) {
+  return <p>Checking access...</p>;
+}
+
   const [logs, setLogs] = useState<AuditEvent[]>([]);
 
   useEffect(() => {

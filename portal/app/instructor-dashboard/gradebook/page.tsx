@@ -1,13 +1,32 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { canEditGrade } from "../../../lib/access-control";
 import { demoUsers } from "../../../lib/demo-users";
 import { recordAuditEvent } from "../../../lib/audit-log";
+import { useRouter } from "next/navigation";
+import { getSession } from "../../../lib/sessions";
 
 export default function GradebookPage() {
+  const router = useRouter();
+const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+useEffect(() => {
+  const session = getSession();
+
+  if (!session || session.role !== "instructor") {
+    router.replace("/instructor-login");
+    return;
+  }
+
+  setIsCheckingSession(false);
+}, [router]);
+
+if (isCheckingSession) {
+  return <p>Checking access...</p>;
+}
   const demoInstructor = demoUsers.find(
   (user) => user.role === "instructor"
 );
