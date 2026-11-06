@@ -1,12 +1,19 @@
 
 "use client";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import {
+  isAccountLocked,
+  recordFailedLogin,
+  resetLoginAttempts,
+} from "../../lib/login-security";
 
 export default function LoginPage() {
   const [universityId, setUniversityId] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const router = useRouter();
 
   const inputStyle = {
@@ -21,6 +28,42 @@ export default function LoginPage() {
     fontSize: "16px",
   };
 
+  function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const id = universityId.trim();
+
+    // Check whether the account is locked
+    if (isAccountLocked(id)) {
+      setMessage(
+        "Account temporarily locked. Please try again after 1 minute."
+      );
+      return;
+    }
+
+    // Demo credential validation
+    if (id === "2021001" && password === "student123") {
+      resetLoginAttempts(id);
+      setMessage("");
+
+      router.push("/verify");
+      return;
+    }
+
+    // Record incorrect login attempt
+    const remainingAttempts = recordFailedLogin(id);
+
+    if (remainingAttempts <= 0) {
+      setMessage(
+        "Too many failed attempts. Your account is locked for 1 minute."
+      );
+    } else {
+      setMessage(
+        `Incorrect University ID or password. ${remainingAttempts} attempts remaining.`
+      );
+    }
+  }
+
   return (
     <main
       style={{
@@ -33,14 +76,10 @@ export default function LoginPage() {
       }}
     >
       <h1>Student Login</h1>
+
       <p>Sign in to access your academic information.</p>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          router.push("/verify");
-        }}
-      >
+      <form onSubmit={handleLogin}>
         <div style={{ marginBottom: "20px" }}>
           <label
             htmlFor="universityId"
@@ -48,6 +87,7 @@ export default function LoginPage() {
           >
             University ID
           </label>
+
           <input
             id="universityId"
             type="text"
@@ -65,6 +105,7 @@ export default function LoginPage() {
           >
             Password
           </label>
+
           <input
             id="password"
             type="password"
@@ -91,6 +132,18 @@ export default function LoginPage() {
           Continue to Face Verification
         </button>
       </form>
+
+      {message && (
+        <p
+          style={{
+            marginTop: "18px",
+            color: "#dc2626",
+            fontWeight: "bold",
+          }}
+        >
+          {message}
+        </p>
+      )}
     </main>
   );
 }
