@@ -1,12 +1,43 @@
 
 import Link from "next/link";
+import { canViewGrade } from "../../lib/access-control";
+import { demoUsers } from "../../lib/demo-users";
 
 export default function StudentDashboard() {
   const courses = [
-    { code: "CS380", name: "Cybersecurity Fundamentals", grade: "A-" },
-    { code: "CS301", name: "Operating Systems", grade: "B+" },
-    { code: "MATH231", name: "Linear Algebra", grade: "A" },
-  ];
+  {
+    studentId: "2021001",
+    code: "CS380",
+    name: "Cybersecurity Fundamentals",
+    grade: "A-",
+  },
+  {
+    studentId: "2021001",
+    code: "CS301",
+    name: "Operating Systems",
+    grade: "B+",
+  },
+  {
+    studentId: "2021001",
+    code: "MATH231",
+    name: "Linear Algebra",
+    grade: "A",
+  },
+];
+const currentStudent = demoUsers.find(
+  (user) => user.id === "2021001"
+);
+
+const visibleCourses = currentStudent
+  ? courses.filter((course) =>
+      canViewGrade(currentStudent, {
+        studentId: course.studentId,
+        courseId: course.code,
+        assignmentGrade: 0,
+        examGrade: 0,
+      })
+    )
+  : [];
 
   return (
     <main
@@ -39,7 +70,7 @@ export default function StudentDashboard() {
             </tr>
           </thead>
           <tbody>
-            {courses.map((course) => (
+            {visibleCourses.map((course) => (
               <tr key={course.code}>
                 <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
                   {course.code}

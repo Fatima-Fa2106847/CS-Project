@@ -3,8 +3,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { canEditGrade } from "../../../lib/access-control";
+import { demoUsers } from "../../../lib/demo-users";
 
 export default function GradebookPage() {
+  const demoInstructor = demoUsers.find(
+  (user) => user.role === "instructor"
+);
+
+const canEdit = demoInstructor
+  ? canEditGrade(demoInstructor, "CS380")
+  : false;
   const [students, setStudents] = useState([
     { id: "2021001", name: "Ahmed Ali", assignment: 18, exam: 42 },
     { id: "2021002", name: "Sara Mohammed", assignment: 20, exam: 45 },
@@ -29,9 +38,18 @@ export default function GradebookPage() {
     setMessage("");
   }
 
-  function saveGrades() {
-    setMessage("Demo: Grade changes are displayed but not saved to a database.");
+  function saveGrades() 
+     {
+  if (!canEdit) {
+    setMessage("Access denied: You cannot edit this course.");
+    return;
   }
+
+  setMessage(
+    "Demo: Grade changes are displayed but not yet saved to a database."
+  );
+}
+  
 
   return (
     <main style={{
@@ -82,10 +100,12 @@ export default function GradebookPage() {
 
                   <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
                     <input
+                    
                       type="number"
                       min="0"
                       max="20"
                       value={student.assignment}
+                      disabled={!canEdit}
                       onChange={(e) =>
                         updateGrade(student.id, "assignment", Number(e.target.value))
                       }
@@ -99,6 +119,7 @@ export default function GradebookPage() {
                       min="0"
                       max="50"
                       value={student.exam}
+                      disabled={!canEdit}
                       onChange={(e) =>
                         updateGrade(student.id, "exam", Number(e.target.value))
                       }
@@ -117,6 +138,7 @@ export default function GradebookPage() {
 
         <button
           onClick={saveGrades}
+          disabled={!canEdit}
           style={{
             marginTop: "25px",
             padding: "12px 24px",
