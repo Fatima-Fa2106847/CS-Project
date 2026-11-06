@@ -1,66 +1,80 @@
 
 "use client";
-import { useRouter } from "next/navigation";
 
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSession } from "../../lib/sessions";
 
-
-import Link from "next/link";
-
 export default function VerifyPage() {
-    const router = useRouter();
+  const router = useRouter();
+
+  function handleVerification() {
+    // Demonstration: simulate successful student verification
+    createSession("2021001", "student");
+    router.push("/student-dashboard");
+  }
+
   return (
-    <main
-      style={{
-        maxWidth: "480px",
-        margin: "60px auto",
-        padding: "32px",
-        fontFamily: "Arial, sans-serif",
-        textAlign: "center",
-        border: "1px solid #ddd",
-        borderRadius: "12px",
-      }
-    }
-    >
-      <h1>Face Verification</h1>
-      <p>Verify your identity to securely access your grades.</p>
+    <main className="auth-page">
+      <div className="auth-card">
 
-      <div
-        style={{
-          margin: "30px auto",
-          padding: "40px 20px",
-          border: "2px dashed #9ca3af",
-          borderRadius: "12px",
-        }}
-      >
-        <p>Camera preview will appear here.</p>
-        <p>Make sure your face is clearly visible.</p>
+        {/* UniPortal branding */}
+        <Link href="/" className="auth-brand">
+          <span className="auth-brand-icon">U</span>
+          <span>UniPortal</span>
+        </Link>
+
+        <div className="auth-divider" />
+
+        {/* Verification heading */}
+        <div className="auth-heading">
+          <div className="auth-icon">🔐</div>
+
+          <h1>Face Verification</h1>
+
+          <p>
+            One final step! Verify your identity to securely
+            access your academic information.
+          </p>
+        </div>
+
+        {/* Camera preview placeholder */}
+        <div className="face-preview">
+          <div className="face-preview-icon">👤</div>
+
+          <h3>Face Recognition</h3>
+
+          <p>
+            Camera preview will appear here.
+          </p>
+
+          <p>
+            Make sure your face is clearly visible.
+          </p>
+
+          <span className="face-status">
+            Verification ready
+          </span>
+        </div>
+
+        {/* Verification button */}
+        <button
+          type="button"
+          className="auth-submit-button"
+          onClick={handleVerification}
+        >
+          Simulate Face Verification →
+        </button>
+
+        <p className="auth-security-note">
+          🔒 Your academic information is protected.
+        </p>
+
+        <Link href="/login" className="auth-back-link">
+          ← Back to Student Login
+        </Link>
+
       </div>
-
-      <button
-       
-onClick={() => {
-  createSession("2021001", "student");
-  router.push("/student-dashboard");
-}}
-
-        style={{
-          width: "100%",
-          padding: "12px",
-          border: "none",
-          borderRadius: "6px",
-          backgroundColor: "#1d4ed8",
-          color: "white",
-          fontSize: "16px",
-          cursor: "pointer",
-        }}
-      >
-        Start Face Verification
-      </button>
-
-      <p style={{ marginTop: "20px" }}>
-        <Link href="/login">Back to Login</Link>
-      </p>
     </main>
   );
 }

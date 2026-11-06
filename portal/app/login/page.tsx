@@ -1,8 +1,10 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 import { recordAuditEvent } from "../../lib/audit-log";
 
 import {
@@ -12,71 +14,70 @@ import {
 } from "../../lib/login-security";
 
 export default function LoginPage() {
+  const router = useRouter();
+
   const [universityId, setUniversityId] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
-  const router = useRouter();
-
-  const inputStyle = {
-    display: "block",
-    width: "100%",
-    padding: "12px",
-    boxSizing: "border-box" as const,
-    border: "1px solid #9ca3af",
-    borderRadius: "6px",
-    backgroundColor: "#ffffff",
-    color: "#111827",
-    fontSize: "16px",
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (isSubmitting) return;
+
     const id = universityId.trim();
 
+    setMessage("");
+
     // Check whether the account is locked
-   if (id === "2021001" && password === "student123") {
-  resetLoginAttempts(id);
+    if (isAccountLocked(id)) {
+      setMessage(
+        "Your account is temporarily locked. Please try again after 1 minute."
+      );
+      return;
+    }
 
-  recordAuditEvent({
-    userId: id,
-    userRole: "student",
-    action: "LOGIN",
-    details: "Student successfully logged in.",
-    status: "SUCCESS",
-  });
+    setIsSubmitting(true);
 
-  setMessage("");
-  router.push("/verify");
-  return;
-}
-    // Demo credential validation
+    // Validate demonstration credentials
     if (id === "2021001" && password === "student123") {
       resetLoginAttempts(id);
-      setMessage("");
+
+      recordAuditEvent({
+        userId: id,
+        userRole: "student",
+        action: "LOGIN",
+        details: "Student successfully logged in.",
+        status: "SUCCESS",
+      });
 
       router.push("/verify");
       return;
     }
 
-    // Record incorrect login attempt
+    // Record unsuccessful login
     const remainingAttempts = recordFailedLogin(id);
+
     recordAuditEvent({
-  userId: id,
-  userRole: "student",
-  action: "LOGIN",
-  details: "Failed student login attempt.",
-  status: "DENIED",
-});
+      userId: id || "UNKNOWN",
+      userRole: "student",
+      action: "LOGIN",
+      details: "Failed student login attempt.",
+      status: "DENIED",
+    });
+
+    setIsSubmitting(false);
 
     if (remainingAttempts <= 0) {
       recordAuditEvent({
-  userId: id,
-  userRole: "student",
-  action: "ACCOUNT_LOCKED",
-  details: "Account locked after five failed login attempts.",
-  status: "DENIED",
-});
+        userId: id || "UNKNOWN",
+        userRole: "student",
+        action: "ACCOUNT_LOCKED",
+        details: "Account locked after five failed login attempts.",
+        status: "DENIED",
+      });
+
       setMessage(
         "Too many failed attempts. Your account is locked for 1 minute."
       );
@@ -88,85 +89,91 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: "420px",
-        margin: "60px auto",
-        padding: "32px",
-        fontFamily: "Arial, sans-serif",
-        border: "1px solid #ddd",
-        borderRadius: "12px",
-      }}
-    >
-      <h1>Student Login</h1>
+    <main className="auth-page">
+      <div className="auth-card">
 
-      <p>Sign in to access your academic information.</p>
+        {/* Branding */}
+        <Link href="/" className="auth-brand">
+          <span className="auth-brand-icon">U</span>
+          <span>UniPortal</span>
+        </Link>
 
-      <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: "20px" }}>
-          <label
-            htmlFor="universityId"
-            style={{ display: "block", marginBottom: "8px" }}
-          >
-            University ID
-          </label>
+        <div className="auth-divider" />
 
-          <input
-            id="universityId"
-            type="text"
-            value={universityId}
-            onChange={(event) => setUniversityId(event.target.value)}
-            required
-            style={inputStyle}
-          />
+        {/* Login heading */}
+        <div className="auth-heading">
+          <div className="auth-icon">🎓</div>
+
+          <h1>Student Login</h1>
+
+          <p>
+            Welcome back! Sign in to access your academic information.
+          </p>
         </div>
 
-        <div style={{ marginBottom: "24px" }}>
-          <label
-            htmlFor="password"
-            style={{ display: "block", marginBottom: "8px" }}
+        {/* Login form */}
+        <form onSubmit={handleLogin} className="auth-form">
+
+          <div className="auth-field">
+            <label htmlFor="universityId">
+              University ID
+            </label>
+
+            <input
+              id="universityId"
+              type="text"
+              placeholder="Enter your University ID"
+              value={universityId}
+              onChange={(event) => setUniversityId(event.target.value)}
+              autoComplete="username"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">
+              Password
+            </label>
+
+            <input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+
+          {message && (
+            <div className="auth-error" role="alert">
+              {message}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="auth-submit-button"
+            disabled={isSubmitting}
           >
-            Password
-          </label>
+            {isSubmitting
+              ? "Signing in..."
+              : "Continue to Face Verification →"}
+          </button>
+        </form>
 
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            padding: "12px",
-            border: "none",
-            borderRadius: "6px",
-            backgroundColor: "#1d4ed8",
-            color: "#ffffff",
-            fontSize: "16px",
-            cursor: "pointer",
-          }}
-        >
-          Continue to Face Verification
-        </button>
-      </form>
-
-      {message && (
-        <p
-          style={{
-            marginTop: "18px",
-            color: "#dc2626",
-            fontWeight: "bold",
-          }}
-        >
-          {message}
+        <p className="auth-security-note">
+          🔒 Secure university portal access
         </p>
-      )}
+
+        <Link href="/" className="auth-back-link">
+          ← Back to Home
+        </Link>
+
+      </div>
     </main>
   );
 }

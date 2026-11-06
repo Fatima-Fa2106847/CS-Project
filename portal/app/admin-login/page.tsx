@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   createSession,
@@ -29,7 +30,7 @@ export default function AdminLogin() {
 
     const id = adminId.trim().toUpperCase();
 
-    // Check whether the account is locked
+    // Check account lock status
     if (isAccountLocked(id)) {
       setMessage(
         "Account temporarily locked. Please try again after 1 minute."
@@ -52,7 +53,7 @@ export default function AdminLogin() {
       // Create administrator session
       createSession(id, "admin");
 
-      // Verify that the session was stored
+      // Verify session creation
       const session = getSession();
 
       if (!session || session.role !== "admin") {
@@ -97,78 +98,87 @@ export default function AdminLogin() {
   }
 
   return (
-    <main
-      style={{
-        padding: "40px",
-        maxWidth: "400px",
-        margin: "auto",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <h1>Administrator Login</h1>
+    <main className="auth-page">
+      <div className="auth-card">
 
-      <p>University Grade Portal</p>
+        {/* UniPortal branding */}
+        <Link href="/" className="auth-brand">
+          <span className="auth-brand-icon">U</span>
+          <span>UniPortal</span>
+        </Link>
 
-      <form onSubmit={handleLogin}>
-        <label htmlFor="adminId">Administrator ID</label>
+        <div className="auth-divider" />
 
-        <input
-          id="adminId"
-          value={adminId}
-          onChange={(e) => setAdminId(e.target.value)}
-          placeholder="Enter administrator ID"
-          autoComplete="username"
-          required
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "10px",
-            margin: "10px 0",
-            boxSizing: "border-box",
-          }}
-        />
+        {/* Login heading */}
+        <div className="auth-heading">
+          <div className="auth-icon">🛡️</div>
 
-        <label htmlFor="password">Password</label>
+          <h1>Administrator Login</h1>
 
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter password"
-          autoComplete="current-password"
-          required
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "10px",
-            margin: "10px 0",
-            boxSizing: "border-box",
-          }}
-        />
+          <p>
+            Secure access to university account management
+            and portal administration.
+          </p>
+        </div>
 
-        <button
-          type="submit"
-          style={{
-            padding: "10px 20px",
-            cursor: "pointer",
-          }}
-        >
-          Login
-        </button>
-      </form>
+        {/* Login form */}
+        <form onSubmit={handleLogin} className="auth-form">
 
-      {message && (
-        <p
-          role="alert"
-          style={{
-            color: "red",
-            marginTop: "15px",
-          }}
-        >
-          {message}
+          <div className="auth-field">
+            <label htmlFor="adminId">
+              Administrator ID
+            </label>
+
+            <input
+              id="adminId"
+              type="text"
+              value={adminId}
+              onChange={(e) => setAdminId(e.target.value)}
+              placeholder="Enter administrator ID"
+              autoComplete="username"
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">
+              Password
+            </label>
+
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          {message && (
+            <p className="auth-error" role="alert">
+              {message}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="auth-submit-button"
+          >
+            Login →
+          </button>
+        </form>
+
+        <p className="auth-security-note">
+          🔒 Authorized administrator access only.
         </p>
-      )}
+
+        <Link href="/" className="auth-back-link">
+          ← Return to Homepage
+        </Link>
+
+      </div>
     </main>
   );
 }

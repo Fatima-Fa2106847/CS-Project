@@ -1,6 +1,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -21,6 +22,7 @@ export default function AdminDashboard() {
 
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [adminId, setAdminId] = useState("");
+
   const [users, setUsers] = useState<ManagedUser[]>([
     {
       id: "2021001",
@@ -76,13 +78,14 @@ export default function AdminDashboard() {
     setIsCheckingSession(false);
   }, [router]);
 
-  // Identify the authenticated administrator
+  // Identify authenticated administrator
   const currentAdmin = demoUsers.find(
     (user) =>
       user.id === adminId &&
       user.role === "admin"
   );
 
+  // Check administrator permissions
   const canManageAccounts = currentAdmin
     ? hasPermission(currentAdmin.role, "manage_users")
     : false;
@@ -172,210 +175,225 @@ export default function AdminDashboard() {
     (user) => user.status === "Pending"
   ).length;
 
-  if (isCheckingSession) {
-    return <p>Checking administrator access...</p>;
+  if (isCheckingSession || !currentAdmin) {
+    return (
+      <main className="portal-container" style={{ padding: "50px 20px" }}>
+        <p>Checking administrator access...</p>
+      </main>
+    );
   }
 
   return (
-    <main
-      style={{
-        maxWidth: "1000px",
-        margin: "40px auto",
-        padding: "32px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <h1>Administrator Dashboard</h1>
+    <main className="admin-dashboard-page">
 
-      <p>
-        Welcome, {currentAdmin?.name}.
-        Manage university portal accounts and permissions.
-      </p>
+      {/* Header */}
+      <header className="admin-dashboard-header">
+        <Link href="/" className="admin-dashboard-brand">
+          <span className="admin-dashboard-brand-icon">U</span>
+          <span>UniPortal</span>
+        </Link>
 
-      <button
-        onClick={handleLogout}
-        style={{
-          padding: "10px 18px",
-          backgroundColor: "#dc2626",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer",
-          marginTop: "10px",
-        }}
-      >
-        Logout
-      </button>
+        <button
+          type="button"
+          className="admin-dashboard-logout"
+          onClick={handleLogout}
+        >
+          Logout →
+        </button>
+      </header>
 
-      {/* Dashboard statistics */}
-      <section
-        style={{
-          display: "flex",
-          gap: "16px",
-          flexWrap: "wrap",
-          marginTop: "30px",
-        }}
-      >
-        <div style={cardStyle}>
-          <h3>Total Users</h3>
-          <h2>{users.length}</h2>
-        </div>
+      <div className="admin-dashboard-container">
 
-        <div style={cardStyle}>
-          <h3>Students</h3>
-          <h2>{totalStudents}</h2>
-        </div>
+        {/* Welcome section */}
+        <section className="admin-dashboard-welcome">
+          <div>
+            <p className="admin-dashboard-eyebrow">
+              ADMINISTRATOR PORTAL
+            </p>
 
-        <div style={cardStyle}>
-          <h3>Instructors</h3>
-          <h2>{totalInstructors}</h2>
-        </div>
+            <h1>Welcome, {currentAdmin.name}!</h1>
 
-        <div style={cardStyle}>
-          <h3>Pending Approvals</h3>
-          <h2>{pendingUsers}</h2>
-        </div>
-      </section>
-
-      {/* User management */}
-      {canManageAccounts && (
-        <section style={sectionStyle}>
-          <h2>User Management</h2>
-
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                textAlign: "left",
-              }}
-            >
-              <thead>
-                <tr>
-                  <th style={cellStyle}>University ID</th>
-                  <th style={cellStyle}>Name</th>
-                  <th style={cellStyle}>Role</th>
-                  <th style={cellStyle}>Status</th>
-                  <th style={cellStyle}>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td style={cellStyle}>{user.id}</td>
-                    <td style={cellStyle}>{user.name}</td>
-                    <td style={cellStyle}>{user.role}</td>
-                    <td style={cellStyle}>{user.status}</td>
-
-                    <td style={cellStyle}>
-                      {user.status === "Pending" && canApprove ? (
-                        <button
-                          onClick={() => approveUser(user.id)}
-                          style={buttonStyle}
-                        >
-                          Approve
-                        </button>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <p>
+              Manage university accounts, review registrations,
+              and monitor portal security.
+            </p>
           </div>
 
-          {canAssignRoles && (
-            <p style={{ marginTop: "20px" }}>
-              Role assignment is reserved for administrators.
-              Role editing is not yet implemented in this prototype.
-            </p>
-          )}
+          <div className="admin-dashboard-welcome-icon">
+            🛡️
+          </div>
+        </section>
 
-          {message && (
-            <p
-              style={{
-                color: messageType === "success" ? "green" : "red",
-                marginTop: "15px",
-                fontWeight: "bold",
-              }}
+        {/* Dashboard statistics */}
+        <section className="admin-dashboard-stats">
+          <div className="admin-dashboard-stat-card">
+            <span className="admin-dashboard-stat-icon">👥</span>
+            <div>
+              <h3>{users.length}</h3>
+              <p>Total Users</p>
+            </div>
+          </div>
+
+          <div className="admin-dashboard-stat-card">
+            <span className="admin-dashboard-stat-icon">🎓</span>
+            <div>
+              <h3>{totalStudents}</h3>
+              <p>Students</p>
+            </div>
+          </div>
+
+          <div className="admin-dashboard-stat-card">
+            <span className="admin-dashboard-stat-icon">📚</span>
+            <div>
+              <h3>{totalInstructors}</h3>
+              <p>Instructors</p>
+            </div>
+          </div>
+
+          <div className="admin-dashboard-stat-card">
+            <span className="admin-dashboard-stat-icon">⏳</span>
+            <div>
+              <h3>{pendingUsers}</h3>
+              <p>Pending Approvals</p>
+            </div>
+          </div>
+        </section>
+
+        {/* User management */}
+        {canManageAccounts && (
+          <section className="admin-dashboard-section">
+            <div className="admin-dashboard-section-heading">
+              <div>
+                <h2>User Management</h2>
+                <p>Review university accounts and registration status.</p>
+              </div>
+
+              <span className="admin-dashboard-count">
+                {users.length} Accounts
+              </span>
+            </div>
+
+            <div className="admin-dashboard-table-wrapper">
+              <table className="admin-dashboard-table">
+                <thead>
+                  <tr>
+                    <th>University ID</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td className="admin-dashboard-user-id">
+                        {user.id}
+                      </td>
+
+                      <td>{user.name}</td>
+
+                      <td>
+                        <span className="admin-dashboard-role">
+                          {user.role}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            user.status === "Active"
+                              ? "admin-status-active"
+                              : "admin-status-pending"
+                          }
+                        >
+                          {user.status}
+                        </span>
+                      </td>
+
+                      <td>
+                        {user.status === "Pending" && canApprove ? (
+                          <button
+                            type="button"
+                            onClick={() => approveUser(user.id)}
+                            className="admin-approve-button"
+                          >
+                            Approve
+                          </button>
+                        ) : (
+                          <span className="admin-no-action">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {canAssignRoles && (
+              <div className="admin-dashboard-role-note">
+                <span>ℹ️</span>
+                <p>
+                  Role assignment is reserved for administrators.
+                  Role editing is not yet implemented in this prototype.
+                </p>
+              </div>
+            )}
+
+            {message && (
+              <div
+                className={
+                  messageType === "success"
+                    ? "admin-dashboard-message-success"
+                    : "admin-dashboard-message-error"
+                }
+                role="status"
+              >
+                {message}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Security management */}
+        {canViewEvents && (
+          <section className="admin-dashboard-security">
+            <div className="admin-dashboard-security-icon">🔐</div>
+
+            <div className="admin-dashboard-security-content">
+              <p className="admin-dashboard-eyebrow">
+                SECURITY MANAGEMENT
+              </p>
+
+              <h2>Monitor Portal Activity</h2>
+
+              <p>
+                Review login attempts and recent security events
+                recorded by the portal.
+              </p>
+
+              <p className="admin-dashboard-security-warning">
+                Administrators cannot access student grade values.
+              </p>
+            </div>
+
+            <Link
+              href="/admin-dashboard/audit-logs"
+              className="admin-dashboard-audit-button"
             >
-              {message}
-            </p>
-          )}
-        </section>
-      )}
+              View Audit Logs →
+            </Link>
+          </section>
+        )}
 
-      {/* Security management */}
-      {canViewEvents && (
-        <section style={sectionStyle}>
-          <h2>Security Management</h2>
+        {/* Footer note */}
+        <footer className="admin-dashboard-footer">
+          UNIPORTAL · UNIVERSITY GRADE PORTAL
+          <p>Demonstration dashboard using fictional user data.</p>
+        </footer>
 
-          <p>
-            Review login attempts and recent security events.
-          </p>
-
-          <a
-            href="/admin-dashboard/audit-logs"
-            style={{
-              display: "inline-block",
-              marginTop: "15px",
-              padding: "10px 18px",
-              backgroundColor: "#1d4ed8",
-              color: "white",
-              textDecoration: "none",
-              borderRadius: "6px",
-            }}
-          >
-            View Audit Logs
-          </a>
-
-          <p>
-            <strong>
-              Administrators cannot access student grade values.
-            </strong>
-          </p>
-        </section>
-      )}
-
-      <p
-        style={{
-          marginTop: "25px",
-          color: "#777",
-          fontSize: "13px",
-        }}
-      >
-        Demonstration dashboard using fictional user data.
-      </p>
+      </div>
     </main>
   );
 }
-
-const cardStyle = {
-  padding: "20px",
-  border: "1px solid #ddd",
-  borderRadius: "10px",
-  minWidth: "130px",
-};
-
-const sectionStyle = {
-  marginTop: "35px",
-  padding: "24px",
-  border: "1px solid #ddd",
-  borderRadius: "12px",
-};
-
-const cellStyle = {
-  padding: "12px",
-  borderBottom: "1px solid #ddd",
-};
-
-const buttonStyle = {
-  padding: "8px 14px",
-  backgroundColor: "#1d4ed8",
-  color: "white",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-};
