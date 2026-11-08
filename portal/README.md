@@ -20,6 +20,36 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Login and roles
+
+Use the single **Log In** button and enter a university ID and password. The
+server looks up the account in SQLite and selects the dashboard from the role
+stored in that user's database row; users do not choose a role on the login
+screen. Student and instructor accounts continue through the existing verification
+demo step before reaching their dashboards.
+
+The app requires Node.js 22.13 or newer and creates `data/portal.sqlite` on the
+first authentication request. You can set `PORTAL_DATABASE_PATH` to use a
+different SQLite file. Initial development accounts are seeded once:
+
+| Role | University ID | Password |
+|---|---|---|
+| Student | `2021001` or `2021002` | `student123` |
+| Instructor | `INS001` | `instructor123` |
+| Administrator | `ADMIN001` | `admin123` |
+
+These are demo credentials only. Passwords are stored as salted scrypt hashes.
+The session cookie is HTTP-only, and the server loads the user's current role
+from SQLite when validating a session. The database is local to this app and is
+ignored by Git.
+
+Students can submit a registration from the login page. New accounts are saved
+with a pending status, cannot log in until approved, and appear in the
+administrator dashboard's user list. Approval updates the SQLite account, so
+it remains approved across refreshes and server restarts. Public registration
+creates student accounts only; roles are assigned by the university, not
+selected by the registrant.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
