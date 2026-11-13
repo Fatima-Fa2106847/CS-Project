@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {hashPassword, verifyPassword,} from "../lib/security/passwords.js";
+import { hashPassword, verifyPassword } from "../lib/security/passwords.js";
 
 
 const password = "Demo-password-only-123";
@@ -18,4 +18,9 @@ console.log("PASS: Correct password accepted.");
 assert.equal(await verifyPassword(hash, "Wrong-password-123"), false);
 console.log("PASS: Wrong password rejected.");
 
+// The same password should produce different hashes because of random salts.
+const secondHash = await hashPassword(password);
+
+assert.notEqual(hash, secondHash);
+console.log("PASS: Random salt produces different hashes.");
 console.log("All password tests passed.");

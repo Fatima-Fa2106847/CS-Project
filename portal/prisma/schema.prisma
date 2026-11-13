@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 1. User accounts
+// Reference to the encrypted face template stored separately
+model User {
+  id                Int       @id @default(autoincrement())
+  name              String
+  email             String    @unique
+  passwordHash      String
+  role              String    @default("STUDENT")
+  status            String    @default("PENDING")
+  faceTemplateRef   String?     
+  passwordChangedAt DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  taughtCourses     Course[]       @relation("CourseInstructor")
+  enrollments       Enrollment[]
+  grades            Grade[]        @relation("StudentGrades")
+  gradedBy          Grade[]        @relation("GradeEditor")
+  sessions          Session[]
+  loginAttempts     LoginAttempt[]
+  authAttempts      AuthAttempt[]
+  activityLogs      ActivityLog[]  @relation("ActivityActor")
+  targetedLogs      ActivityLog[]  @relation("ActivityTarget")
+}
+
+// 2. University courses
+model Course {
+  id           Int      @id @default(autoincrement())
+  courseCode   String   @unique
+  courseName   String
+  instructorId Int
+  createdAt    DateTime @default(now())
+
+  instructor   User         @relation("CourseInstructor", fields: [instructorId], references: [id])
+  enrollments  Enrollment[]
+  assessments  Assessment[]
+}
+
+// 3. Student enrollments
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  courseId   Int
+  status     String   @default("ACTIVE")
+  enrolledAt DateTime @default(now())
+
+  student User   @relation(fields: [studentId], references: [id])
+  course  Course @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+}
+
+// 4. Exams and assignments
+model Assessment {
+  id        Int       @id @default(autoincrement())
+  courseId  Int
+  title     String
+  type      String
+  maxGrade  Float
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  course Course  @relation(fields: [courseId], references: [id])
+  grades Grade[]
+}
+
+// 5. Student grades
+model Grade {
+  id           Int      @id @default(autoincrement())
+  studentId    Int
+  assessmentId Int
+  grade        Float
+  gradedById   Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student    User       @relation("StudentGrades", fields: [studentId], references: [id])
+  assessment Assessment @relation(fields: [assessmentId], references: [id])
+  gradedBy   User?      @relation("GradeEditor", fields: [gradedById], references: [id])
+
+  @@unique([studentId, assessmentId])
+}
+
+// 6. Activity and security logs
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int?
+  targetUserId Int?
+  action       String
+  success      Boolean
+  details      String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  user       User? @relation("ActivityActor", fields: [userId], references: [id])
+  targetUser User? @relation("ActivityTarget", fields: [targetUserId], references: [id])
+
+  @@index([createdAt])
+}
+
+// 7. Failed login attempts and cooldowns
+model LoginAttempt {
+  id            Int       @id @default(autoincrement())
+  userId        Int?      @unique
+  email         String    @unique
+  failedCount   Int       @default(0)
+  lastFailedAt  DateTime?
+  lockedUntil   DateTime?
+  lastIpAddress String?
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+// 8. Login sessions
+model Session {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  tokenHash      String    @unique
+  createdAt      DateTime  @default(now())
+  lastActivityAt DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  ipAddress      String?
+  userAgent      String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// 9. Face authentication and liveness attempts
+model AuthAttempt {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  challengeType      String
+  challengeExpiresAt DateTime
+  challengeUsedAt    DateTime?
+  faceMatched        Boolean?
+  livenessPassed     Boolean?
+  success            Boolean   @default(false)
+  failureReason      String?
+  createdAt          DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
