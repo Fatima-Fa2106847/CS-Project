@@ -8,6 +8,7 @@ datasource db {
 }
 
 // 1. User accounts
+// sign in with id
 // Reference to the encrypted face template stored separately
 model User {
   id                Int       @id @default(autoincrement())
@@ -59,7 +60,7 @@ model Enrollment {
   @@unique([studentId, courseId])
 }
 
-// 4. Exams and assignments
+// 4.  assignments
 model Assessment {
   id        Int       @id @default(autoincrement())
   courseId  Int
