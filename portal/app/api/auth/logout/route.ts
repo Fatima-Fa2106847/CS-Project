@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { deleteAuthSession } from "../../../../lib/database";
+import { deleteAuthSession } from "../../../../lib/auth-service";
 import { AUTH_SESSION_COOKIE } from "../../../../lib/auth-constants";
 
 export async function POST() {
@@ -8,7 +8,7 @@ export async function POST() {
   const token = cookieStore.get(AUTH_SESSION_COOKIE)?.value;
 
   if (token) {
-    deleteAuthSession(token);
+    await deleteAuthSession(token);
   }
 
   cookieStore.delete(AUTH_SESSION_COOKIE);

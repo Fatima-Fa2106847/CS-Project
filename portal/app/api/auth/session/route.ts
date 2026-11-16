@@ -4,7 +4,7 @@ import {
   deleteAuthSession,
   getUserForVerification,
   getUserForSession,
-} from "../../../../lib/database";
+} from "../../../../lib/auth-service";
 import { AUTH_SESSION_COOKIE } from "../../../../lib/auth-constants";
 
 export async function GET() {
@@ -15,16 +15,16 @@ export async function GET() {
     return Response.json({ message: "Not signed in." }, { status: 401 });
   }
 
-  const user = getUserForSession(token);
+  const user = await getUserForSession(token);
   if (!user) {
-    if (getUserForVerification(token)) {
+    if (await getUserForVerification(token)) {
       return Response.json(
         { message: "Complete verification before accessing your dashboard." },
         { status: 403 }
       );
     }
 
-    deleteAuthSession(token);
+    await deleteAuthSession(token);
     cookieStore.delete(AUTH_SESSION_COOKIE);
     return Response.json({ message: "Session expired." }, { status: 401 });
   }

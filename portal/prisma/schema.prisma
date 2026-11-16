@@ -7,17 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. User accounts
-// sign in with id
-// Reference to the encrypted face template stored separately
+// 1. University accounts: STUDENT, INSTRUCTOR, ADMIN
 model User {
   id                Int       @id @default(autoincrement())
+  universityId      String    @unique
   name              String
   email             String    @unique
   passwordHash      String
   role              String    @default("STUDENT")
-  status            String    @default("PENDING")
-  faceTemplateRef   String?     
+  status            String    @default("ACTIVE")
+  faceTemplateRef   String?
   passwordChangedAt DateTime  @default(now())
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -60,7 +59,7 @@ model Enrollment {
   @@unique([studentId, courseId])
 }
 
-// 4.  assignments
+// 4. Course assessments: assignments, quizzes, exams
 model Assessment {
   id        Int       @id @default(autoincrement())
   courseId  Int
@@ -125,6 +124,7 @@ model LoginAttempt {
 model Session {
   id             Int       @id @default(autoincrement())
   userId         Int
+  status         String    @default("PENDING")
   tokenHash      String    @unique
   createdAt      DateTime  @default(now())
   lastActivityAt DateTime  @default(now())

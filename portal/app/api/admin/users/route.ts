@@ -2,7 +2,7 @@ import { getAuthenticatedAdmin } from "../../../../lib/admin-auth";
 import {
   approveStudentRegistration,
   getManagedUsers,
-} from "../../../../lib/database";
+} from "../../../../lib/auth-service";
 
 export async function GET() {
   const admin = await getAuthenticatedAdmin();
@@ -11,7 +11,7 @@ export async function GET() {
     return Response.json({ message: "Administrator access required." }, { status: 403 });
   }
 
-  return Response.json({ users: getManagedUsers() });
+  return Response.json({ users: await getManagedUsers() });
 }
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return Response.json({ message: "A valid user ID is required." }, { status: 400 });
   }
 
-  const approved = approveStudentRegistration(body.userId);
+  const approved = await approveStudentRegistration(body.userId);
 
   if (!approved) {
     return Response.json(

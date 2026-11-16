@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 
 import { AUTH_SESSION_COOKIE } from "./auth-constants";
-import { getUserForSession } from "./database";
+import { getUserForSession } from "./auth-service";
 
 export async function getAuthenticatedAdmin() {
   const cookieStore = await cookies();
@@ -9,6 +9,6 @@ export async function getAuthenticatedAdmin() {
 
   if (!token) return null;
 
-  const user = getUserForSession(token);
+  const user = await getUserForSession(token);
   return user?.role === "admin" ? user : null;
 }

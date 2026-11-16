@@ -5,7 +5,7 @@ import {
   deleteAuthSession,
   getUserForSession,
   getUserForVerification,
-} from "../../../../lib/database";
+} from "../../../../lib/auth-service";
 import { AUTH_SESSION_COOKIE } from "../../../../lib/auth-constants";
 import {
   isSessionRole,
@@ -20,16 +20,16 @@ export async function GET() {
     return Response.json({ message: "No pending verification." }, { status: 401 });
   }
 
-  const user = getUserForVerification(token);
+  const user = await getUserForVerification(token);
   if (!user) {
-    if (getUserForSession(token)) {
+    if (await getUserForSession(token)) {
       return Response.json(
         { message: "This account has already been verified." },
         { status: 403 }
       );
     }
 
-    deleteAuthSession(token);
+    await deleteAuthSession(token);
     cookieStore.delete(AUTH_SESSION_COOKIE);
     return Response.json({ message: "Verification session expired." }, { status: 401 });
   }
@@ -57,13 +57,12 @@ export async function POST(request: Request) {
     typeof body !== "object" ||
     body === null ||
     !("role" in body) ||
-    !isSessionRole(body.role) ||
-    body.role === "admin"
+    !isSessionRole(body.role)
   ) {
     return Response.json({ message: "Invalid verification role." }, { status: 400 });
   }
 
-  const role: Exclude<SessionRole, "admin"> = body.role;
+  const role: SessionRole = body.role;
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_SESSION_COOKIE)?.value;
 
@@ -71,9 +70,9 @@ export async function POST(request: Request) {
     return Response.json({ message: "No pending verification." }, { status: 401 });
   }
 
-  if (!completeAuthVerification(token, role)) {
+  if (!(await completeAuthVerification(token, role))) {
     return Response.json(
-      { message: "Verification does not match the account role." },
+      { message: "Verification does not match the account role or has not been completed." },
       { status: 403 }
     );
   }

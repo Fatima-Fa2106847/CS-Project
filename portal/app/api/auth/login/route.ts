@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import {
   authenticateUser,
   createAuthSession,
-} from "../../../../lib/database";
+} from "../../../../lib/auth-service";
 import {
   AUTH_SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
@@ -35,12 +35,12 @@ export async function POST(request: Request) {
     return Response.json({ message: "Enter a valid ID and password." }, { status: 400 });
   }
 
-  const result = authenticateUser(userId, body.password);
+  const result = await authenticateUser(userId, body.password);
 
   if (!result.success) {
     if (result.reason === "locked") {
       return Response.json(
-        { message: "Too many failed attempts. Your account is locked for 1 minute." },
+        { message: "Too many failed attempts. Your account is locked for 30 seconds." },
         { status: 429 }
       );
     }
@@ -65,9 +65,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const { token } = createAuthSession(
+  const { token } = await createAuthSession(
     result.user.id,
-    result.user.role !== "admin"
+    true
   );
   const cookieStore = await cookies();
 
