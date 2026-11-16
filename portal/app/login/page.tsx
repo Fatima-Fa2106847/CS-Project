@@ -61,13 +61,17 @@ export default function LoginPage() {
 
       const { id: authenticatedId, role } = result.user;
 
-      recordAuditEvent({
-        userId: authenticatedId,
-        userRole: role,
-        action: "LOGIN",
-        details: `${role} successfully logged in.`,
-        status: "SUCCESS",
-      });
+      try {
+        recordAuditEvent({
+          userId: authenticatedId,
+          userRole: role,
+          action: "LOGIN",
+          details: `${role} successfully logged in.`,
+          status: "SUCCESS",
+        });
+      } catch (error) {
+        console.error("Unable to record login audit event:", error);
+      }
 
       if (role === "student") {
         router.replace("/verify");
