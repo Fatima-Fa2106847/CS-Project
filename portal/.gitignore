@@ -44,3 +44,5 @@ next-env.d.ts
 __pycache__/
 face-verification/*.png
 face-verification/*.jpg
+
+/private_face_templates/
