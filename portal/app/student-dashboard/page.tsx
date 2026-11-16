@@ -1,64 +1,244 @@
 
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { canViewGrade } from "../../lib/access-control";
+import {
+  clearSession,
+  getDashboardPath,
+  getSession,
+  type PortalSession,
+} from "../../lib/sessions";
+import { recordAuditEvent } from "../../lib/audit-log";
 
 export default function StudentDashboard() {
+  const router = useRouter();
+
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [currentStudent, setCurrentStudent] = useState<PortalSession | null>(null);
+
+  useEffect(() => {
+    void getSession()
+      .then((session) => {
+        if (!session) {
+          router.replace("/login");
+          return;
+        }
+
+        if (session.role !== "student") {
+          router.replace(getDashboardPath(session.role));
+          return;
+        }
+
+        setCurrentStudent(session);
+        setIsCheckingSession(false);
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to verify student session:", error);
+        router.replace("/login");
+      });
+  }, [router]);
+
+  async function handleLogout() {
+    if (currentStudent) {
+      recordAuditEvent({
+        userId: currentStudent.userId,
+        userRole: "student",
+        action: "LOGOUT",
+        details: "Student logged out.",
+        status: "SUCCESS",
+      });
+    }
+
+    try {
+      await clearSession();
+      router.replace("/");
+    } catch (error) {
+      console.error("Unable to log out:", error);
+    }
+  }
+
+  // Demonstration course information
   const courses = [
-    { code: "CS380", name: "Cybersecurity Fundamentals", grade: "A-" },
-    { code: "CS301", name: "Operating Systems", grade: "B+" },
-    { code: "MATH231", name: "Linear Algebra", grade: "A" },
+    {
+      studentId: "2021001",
+      code: "CS380",
+      name: "Cybersecurity Fundamentals",
+      grade: "A-",
+      description: "Information security, threats and protection.",
+    },
+    {
+      studentId: "2021001",
+      code: "CS301",
+      name: "Operating Systems",
+      grade: "B+",
+      description: "Processes, memory and operating system concepts.",
+    },
+    {
+      studentId: "2021001",
+      code: "MATH231",
+      name: "Linear Algebra",
+      grade: "A",
+      description: "Matrices, vectors and linear transformations.",
+    },
   ];
 
+  // Show only courses the student is permitted to view
+  const visibleCourses = currentStudent
+    ? courses.filter((course) =>
+        course.studentId === currentStudent.userId &&
+        canViewGrade({
+          id: currentStudent.userId,
+          name: currentStudent.name,
+          role: currentStudent.role,
+          enrolledCourses: currentStudent.enrolledCourses,
+          assignedCourses: currentStudent.assignedCourses,
+        }, {
+          studentId: course.studentId,
+          courseId: course.code,
+          assignmentGrade: 0,
+          examGrade: 0,
+        })
+      )
+    : [];
+
+  if (isCheckingSession || !currentStudent) {
+    return (
+      <main className="portal-container" style={{ padding: "50px 20px" }}>
+        <p>Checking student access...</p>
+      </main>
+    );
+  }
+
   return (
-    <main
-      style={{
-        maxWidth: "900px",
-        margin: "40px auto",
-        padding: "32px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <h1>Student Dashboard</h1>
-      <p>Welcome! Here are your published grades.</p>
+    <main className="dashboard-page">
 
-      <section
-        style={{
-          marginTop: "30px",
-          padding: "24px",
-          border: "1px solid #ddd",
-          borderRadius: "12px",
-        }}
-      >
-        <h2>My Courses</h2>
+      {/* Header */}
+      <header className="dashboard-header">
+        <Link href="/" className="dashboard-brand">
+          <span className="dashboard-brand-icon">U</span>
+          <span>UniPortal</span>
+        </Link>
 
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: "12px" }}>Course</th>
-              <th style={{ textAlign: "left", padding: "12px" }}>Name</th>
-              <th style={{ textAlign: "left", padding: "12px" }}>Grade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courses.map((course) => (
-              <tr key={course.code}>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
-                  {course.code}
-                </td>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
-                  {course.name}
-                </td>
-                <td style={{ padding: "12px", borderTop: "1px solid #ddd" }}>
-                  {course.grade}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        <button
+          className="dashboard-logout"
+          onClick={handleLogout}
+        >
+          Logout →
+        </button>
+      </header>
 
-      <p style={{ marginTop: "24px" }}>
-        <Link href="/">Log out</Link>
-      </p>
+      <div className="dashboard-container">
+
+        {/* Welcome section */}
+        <section className="dashboard-welcome">
+          <div>
+            <p className="dashboard-eyebrow">
+              STUDENT PORTAL
+            </p>
+
+            <h1>Welcome, {currentStudent.name}!</h1>
+
+            <p>
+              Here is an overview of your academic information
+              and published grades.
+            </p>
+          </div>
+
+          <div className="dashboard-student-badge">
+            <span>🎓</span>
+            <div>
+              <strong>Student ID</strong>
+              <p>{currentStudent.userId}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Academic summary */}
+        <section className="dashboard-stats">
+          <div className="dashboard-stat-card">
+            <span className="dashboard-stat-icon">📚</span>
+            <div>
+              <h3>{visibleCourses.length}</h3>
+              <p>Enrolled Courses</p>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card">
+            <span className="dashboard-stat-icon">📊</span>
+            <div>
+              <h3>{visibleCourses.length}</h3>
+              <p>Published Grades</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Courses */}
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <h2>My Courses</h2>
+              <p>Your academic courses and published grades.</p>
+            </div>
+
+            <span className="dashboard-course-count">
+              {visibleCourses.length} Courses
+            </span>
+          </div>
+
+          <div className="student-course-grid">
+            {visibleCourses.length > 0 ? (
+              visibleCourses.map((course) => (
+                <article
+                  className="student-course-card"
+                  key={course.code}
+                >
+                  <div className="student-course-top">
+                    <span className="student-course-code">
+                      {course.code}
+                    </span>
+
+                    <span className="student-course-icon">
+                      📖
+                    </span>
+                  </div>
+
+                  <h3>{course.name}</h3>
+
+                  <p>{course.description}</p>
+
+                  <div className="student-course-grade">
+                    <span>Published Grade</span>
+                    <strong>{course.grade}</strong>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p>No published courses are currently available.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Security note */}
+        <section className="dashboard-security">
+          <span>🔒</span>
+          <div>
+            <strong>Your information is protected</strong>
+            <p>
+              You can only access your own academic information
+              through your student account.
+            </p>
+          </div>
+        </section>
+
+        <footer className="dashboard-footer">
+          UNIPORTAL · UNIVERSITY GRADE PORTAL
+        </footer>
+
+      </div>
     </main>
   );
 }

@@ -1,10 +1,50 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  completeVerification,
+  getDashboardPath,
+  getPendingSession,
+} from "../../lib/sessions";
 
 export default function VerifyInstructorPage() {
   const router = useRouter();
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    void getPendingSession()
+      .then((session) => {
+        if (!session) {
+          router.replace("/login");
+        } else if (session.role !== "instructor") {
+          router.replace(getDashboardPath(session.role));
+        } else {
+          setIsCheckingSession(false);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to verify instructor account:", error);
+        router.replace("/login");
+      });
+  }, [router]);
+
+  async function handleVerification() {
+    setIsVerifying(true);
+    setMessage("");
+
+    try {
+      await completeVerification("instructor");
+      router.push("/instructor-dashboard");
+    } catch (error) {
+      console.error("Unable to complete instructor verification:", error);
+      setMessage("Unable to complete verification. Please try again.");
+      setIsVerifying(false);
+    }
+  }
 
   return (
     <main style={{
@@ -30,7 +70,8 @@ export default function VerifyInstructorPage() {
       </div>
 
       <button
-        onClick={() => router.push("/instructor-dashboard")}
+        onClick={handleVerification}
+        disabled={isCheckingSession || isVerifying}
         style={{
           width: "100%",
           padding: "12px",
@@ -41,8 +82,18 @@ export default function VerifyInstructorPage() {
           cursor: "pointer",
         }}
       >
-        Start Face Verification
+        {isCheckingSession
+          ? "Checking account..."
+          : isVerifying
+            ? "Verifying..."
+            : "Continue to Instructor Dashboard"}
       </button>
+
+      {message && (
+        <p role="alert" style={{ color: "#dc2626" }}>
+          {message}
+        </p>
+      )}
     </main>
   );
 }
