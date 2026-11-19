@@ -12,20 +12,7 @@ async function main() {
       password: "Yara123!",
       role: "ADMIN",
     },
-    {
-      universityId: "ya1808057",
-      name: "Yara",
-      email: "ya1808057@uni.com",
-      password: "Yara1234!",
-      role: "INSTRUCTOR",
-    },
-     {
-      universityId: "ya1808058",
-      name: "Yara",
-      email: "ya1808058@uni.com",
-      password: "Yara12345!",
-      role: "STUDENT",
-    },
+
     {
       universityId: "fa2106847",
       name: "Fatima",
