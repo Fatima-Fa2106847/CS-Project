@@ -13,6 +13,20 @@ async function main() {
       role: "ADMIN",
     },
     {
+      universityId: "ya1808057",
+      name: "Yara",
+      email: "ya1808057@uni.com",
+      password: "Yara1234!",
+      role: "INSTRUCTOR",
+    },
+     {
+      universityId: "ya1808058",
+      name: "Yara",
+      email: "ya1808058@uni.com",
+      password: "Yara12345!",
+      role: "STUDENT",
+    },
+    {
       universityId: "fa2106847",
       name: "Fatima",
       email: "fa2106847@uni.com",
@@ -33,6 +47,7 @@ async function main() {
       password: "Khawla123!",
       role: "INSTRUCTOR",
     },
+     
   ];
 
   for (const user of users) {
@@ -61,4 +76,5 @@ main()
   .catch(console.error)
   .finally(async () => {
     await prisma.$disconnect();
-  });
+  }
+);
