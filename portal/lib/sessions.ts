@@ -70,7 +70,7 @@ export async function getPendingSession(): Promise<PortalSession | null> {
 }
 
 export async function completeVerification(
-  role: Exclude<SessionRole, "admin">
+  role: SessionRole
 ): Promise<void> {
   const response = await fetch("/api/auth/verification", {
     method: "POST",

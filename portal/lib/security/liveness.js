@@ -1,43 +1,51 @@
+
 import crypto from "node:crypto";
 import prisma from "../prisma.js";
 
-// User must complete the challenge within 15 seconds
+// User has 15 seconds to complete the challenge.
 const CHALLENGE_TIME = 15 * 1000;
 
-// Possible movements for the user
-const challenges = ["TURN_LEFT", "TURN_RIGHT", "BLINK"];
+// Available liveness challenges.
+const challenges = [
+  "TURN_LEFT",
+  "TURN_RIGHT",
+  "BLINK",
+];
 
-// Create a random challenge for the user
+// Generate a random liveness challenge.
 export async function createChallenge(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
 
-  // Only active users can start authentication
+  // Only active accounts can start verification.
   if (!user || user.status !== "ACTIVE") {
     return null;
   }
 
-  // Choose a random movement
+  // Select a random challenge.
   const randomIndex = crypto.randomInt(challenges.length);
   const challengeType = challenges[randomIndex];
 
-  // Save the challenge in the database
+  // Save challenge in the database.
   const attempt = await prisma.authAttempt.create({
     data: {
       userId,
       challengeType,
-      challengeExpiresAt: new Date(Date.now() + CHALLENGE_TIME),
+      challengeExpiresAt: new Date(
+        Date.now() + CHALLENGE_TIME
+      ),
     },
   });
 
   return {
     attemptId: attempt.id,
     challengeType: attempt.challengeType,
+    expiresAt: attempt.challengeExpiresAt.getTime(),
   };
 }
 
-// Check whether a challenge can still be used
+// Check whether a challenge is valid.
 export async function checkChallenge(attemptId) {
   const attempt = await prisma.authAttempt.findUnique({
     where: { id: attemptId },
@@ -47,10 +55,13 @@ export async function checkChallenge(attemptId) {
     return false;
   }
 
-  // Reject expired or already used challenges
+  // Reject expired or previously completed challenges.
   if (
-    attempt.challengeUsedAt ||
-    Date.now() >= attempt.challengeExpiresAt.getTime()
+    attempt.challengeUsedAt !== null ||
+    Date.now() >= attempt.challengeExpiresAt.getTime() ||
+    attempt.success === true ||
+    attempt.faceMatched !== null ||
+    attempt.livenessPassed !== null
   ) {
     return false;
   }
@@ -58,27 +69,41 @@ export async function checkChallenge(attemptId) {
   return true;
 }
 
-// Save the face recognition and liveness results
+// Save the actual verification results.
+// The authentication service will consume the challenge
+// when it successfully activates the login session.
 export async function completeChallenge(
   attemptId,
   faceMatched,
   livenessPassed
 ) {
-  // Accept the challenge only once and before its deadline
+  if (
+    !Number.isInteger(attemptId) ||
+    typeof faceMatched !== "boolean" ||
+    typeof livenessPassed !== "boolean"
+  ) {
+    return false;
+  }
+
   const result = await prisma.authAttempt.updateMany({
     where: {
       id: attemptId,
       challengeUsedAt: null,
-      challengeExpiresAt: { gt: new Date() },
+      challengeExpiresAt: {
+        gt: new Date(),
+      },
+      faceMatched: null,
+      livenessPassed: null,
+      success: false,
     },
     data: {
-      challengeUsedAt: new Date(),
       faceMatched,
       livenessPassed,
-      success: faceMatched === true && livenessPassed === true,
+      success:
+        faceMatched === true &&
+        livenessPassed === true,
     },
   });
 
-  // If no record was updated, the challenge was invalid
   return result.count === 1;
 }

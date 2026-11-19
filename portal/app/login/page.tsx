@@ -21,68 +21,85 @@ export default function LoginPage() {
 
     if (isSubmitting) return;
 
-    const id = universityId.trim();
     setMessage("");
     setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: id, password }),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          userId: universityId.trim(),
+          password,
+        }),
       });
-      const result: unknown = await response.json();
+
+      // Read response as text first to avoid JSON parsing crashes.
+      const responseText = await response.text();
+
+      if (!responseText.trim()) {
+        throw new Error(
+          `The login server returned an empty response (HTTP ${response.status}).`
+        );
+      }
+
+      let result: any;
+
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        console.error("Invalid server response:", responseText);
+
+        throw new Error(
+          "The server returned an invalid response. Check the terminal for errors."
+        );
+      }
 
       if (!response.ok) {
-        const errorMessage =
-          typeof result === "object" &&
-          result !== null &&
-          "message" in result &&
+        setMessage(
           typeof result.message === "string"
             ? result.message
-            : "Unable to sign in.";
-        setMessage(errorMessage);
+            : `Login failed (HTTP ${response.status}).`
+        );
         return;
       }
 
       if (
-        typeof result !== "object" ||
-        result === null ||
-        !("user" in result) ||
-        typeof result.user !== "object" ||
-        result.user === null ||
-        !("id" in result.user) ||
+        !result.user ||
         typeof result.user.id !== "string" ||
-        !("role" in result.user) ||
         !isSessionRole(result.user.role)
       ) {
-        throw new Error("The login service returned an invalid response.");
+        throw new Error("Invalid login information returned by the server.");
       }
 
-      const { id: authenticatedId, role } = result.user;
+      const { id, role } = result.user;
 
       try {
         recordAuditEvent({
-          userId: authenticatedId,
+          userId: id,
           userRole: role,
           action: "LOGIN",
           details: `${role} successfully logged in.`,
           status: "SUCCESS",
         });
       } catch (error) {
-        console.error("Unable to record login audit event:", error);
+        console.error("Audit logging failed:", error);
       }
 
-      if (role === "student") {
-        router.replace("/verify");
-      } else if (role === "instructor") {
-        router.replace("/verify-instructor");
-      } else {
-        router.replace(getDashboardPath(role));
-      }
+      // All three roles must complete face verification.
+      router.replace("/verify");
+      
     } catch (error) {
-      console.error("Unable to complete login:", error);
-      setMessage("Unable to reach the login service. Please try again.");
+      console.error("Login error:", error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect to the login server."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -92,7 +109,6 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-card">
 
-        {/* Branding */}
         <Link href="/" className="auth-brand">
           <span className="auth-brand-icon">U</span>
           <span>UniPortal</span>
@@ -100,19 +116,17 @@ export default function LoginPage() {
 
         <div className="auth-divider" />
 
-        {/* Login heading */}
         <div className="auth-heading">
           <div className="auth-icon">🎓</div>
 
           <h1>University Login</h1>
 
           <p>
-            Sign in with your university ID. Your account role determines
-            which portal you can access.
+            Sign in using your university ID and password.
+            All users must complete face verification.
           </p>
         </div>
 
-        {/* Login form */}
         <form onSubmit={handleLogin} className="auth-form">
 
           <div className="auth-field">
@@ -125,7 +139,9 @@ export default function LoginPage() {
               type="text"
               placeholder="Enter your University ID"
               value={universityId}
-              onChange={(event) => setUniversityId(event.target.value)}
+              onChange={(event) =>
+                setUniversityId(event.target.value)
+              }
               autoComplete="username"
               required
               disabled={isSubmitting}
@@ -142,7 +158,9 @@ export default function LoginPage() {
               type="password"
               placeholder="Enter your password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               autoComplete="current-password"
               required
               disabled={isSubmitting}
@@ -160,10 +178,9 @@ export default function LoginPage() {
             className="auth-submit-button"
             disabled={isSubmitting}
           >
-            {isSubmitting
-              ? "Signing in..."
-              : "Log In →"}
+            {isSubmitting ? "Signing in..." : "Log In →"}
           </button>
+
         </form>
 
         <p className="auth-security-note">
