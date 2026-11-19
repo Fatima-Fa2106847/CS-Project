@@ -348,11 +348,14 @@ export async function completeAuthVerification(
     return false;
   }
 
-  // Only activate a session when the server has recorded
-  // successful face recognition and liveness verification.
+  // Find a successful verification belonging to this session.
   const verification = await prisma.authAttempt.findFirst({
     where: {
       userId: session.userId,
+      sessionId: session.id,
+      challengeHash: {
+        not: null,
+      },
       success: true,
       faceMatched: true,
       livenessPassed: true,
@@ -375,9 +378,16 @@ export async function completeAuthVerification(
 
   return prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
+
+      // Consume the challenge so it cannot be reused.
       const used = await tx.authAttempt.updateMany({
         where: {
           id: verification.id,
+          userId: session.userId,
+          sessionId: session.id,
+          success: true,
+          faceMatched: true,
+          livenessPassed: true,
           challengeUsedAt: null,
           challengeExpiresAt: {
             gt: new Date(),
@@ -392,6 +402,7 @@ export async function completeAuthVerification(
         return false;
       }
 
+      // Activate only the session that completed verification.
       const result = await tx.session.updateMany({
         where: {
           id: session.id,
@@ -399,6 +410,12 @@ export async function completeAuthVerification(
           revokedAt: null,
           expiresAt: {
             gt: new Date(),
+          },
+          user: {
+            is: {
+              status: "ACTIVE",
+              role: session.user.role,
+            },
           },
         },
         data: {

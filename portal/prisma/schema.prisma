@@ -132,7 +132,8 @@ model Session {
   ipAddress      String?
   userAgent      String?
 
-  user User @relation(fields: [userId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  authAttempts AuthAttempt[]
 
   @@index([userId])
 }
@@ -141,6 +142,8 @@ model Session {
 model AuthAttempt {
   id                 Int       @id @default(autoincrement())
   userId             Int
+  sessionId          Int?
+  challengeHash      String?   @unique
   challengeType      String
   challengeExpiresAt DateTime
   challengeUsedAt    DateTime?
@@ -150,7 +153,9 @@ model AuthAttempt {
   failureReason      String?
   createdAt          DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  session Session? @relation(fields: [sessionId], references: [id])
 
   @@index([userId, createdAt])
+  @@index([sessionId])
 }

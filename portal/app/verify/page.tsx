@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -70,6 +69,9 @@ export default function VerifyPage() {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // Security: facial verification cooldown.
+  const [cooldown, setCooldown] = useState(0);
+
   const [message, setMessage] = useState(
     "Preparing your secure face verification."
   );
@@ -77,6 +79,22 @@ export default function VerifyPage() {
   const [messageType, setMessageType] = useState<
     "info" | "success" | "error"
   >("info");
+
+  // Security: reduce the cooldown every second.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => {
+      setCooldown(previous => previous - 1);
+
+      if (cooldown === 1) {
+        setMessage("Cooldown ended. You may try again.");
+        setMessageType("info");
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   // Stop the webcam and release its resources.
   const stopCamera = useCallback(() => {
@@ -148,6 +166,7 @@ export default function VerifyPage() {
         );
 
         setMessageType("info");
+
       } catch (error) {
         console.error("Verification initialization failed:", error);
 
@@ -160,6 +179,7 @@ export default function VerifyPage() {
 
           setMessageType("error");
         }
+
       } finally {
         if (mountedRef.current) {
           setIsCheckingSession(false);
@@ -201,6 +221,7 @@ export default function VerifyPage() {
       faceApiRef.current = faceapi;
 
       return faceapi;
+
     } finally {
       setIsLoadingModels(false);
     }
@@ -260,6 +281,7 @@ export default function VerifyPage() {
       );
 
       setMessageType("success");
+
     } catch (error) {
       console.error("Camera initialization failed:", error);
 
@@ -341,6 +363,7 @@ export default function VerifyPage() {
         );
 
         setMessageType("success");
+
       } else {
         smileFrames = 0;
 
@@ -386,7 +409,9 @@ export default function VerifyPage() {
 
   // Register a new face or verify an existing face.
   async function handleFaceVerification() {
-    if (!account || isVerifying) return;
+
+    // Security: prevent verification during cooldown.
+    if (!account || isVerifying || cooldown > 0) return;
 
     if (!isCameraReady) {
       setMessage("Please start your camera first.");
@@ -400,13 +425,51 @@ export default function VerifyPage() {
     setMessageType("info");
 
     try {
-      // First detect the smile and capture the face.
+
+      // Security: request a unique authentication challenge.
+      const challengeResponse = await fetch("/api/auth/face", {
+        method: "PUT",
+        cache: "no-store",
+      });
+
+      const challengeResult = await readResponse(challengeResponse);
+
+      // Security: check the cooldown before facial capture.
+      if (challengeResponse.status === 429) {
+        setCooldown(30);
+        setMessage("Too many failed face attempts. Please wait.");
+        setMessageType("error");
+        return;
+      }
+
+      if (!challengeResponse.ok) {
+        throw new Error(
+          getResponseMessage(
+            challengeResult,
+            "Unable to generate authentication challenge."
+          )
+        );
+      }
+
+      // Security: validate the received challenge.
+      if (
+        typeof challengeResult !== "object" ||
+        challengeResult === null ||
+        !("challenge" in challengeResult) ||
+        typeof challengeResult.challenge !== "string"
+      ) {
+        throw new Error("Invalid authentication challenge.");
+      }
+
+      const challenge = challengeResult.challenge;
+
+      // Detect the smile and capture the face.
       const descriptor = await captureFaceAfterSmile();
 
       setMessage("Sending face data securely for recognition...");
       setMessageType("info");
 
-      // Send the descriptor to the server.
+      // Send the descriptor and authentication challenge.
       const response = await fetch("/api/auth/face", {
         method: "POST",
 
@@ -417,6 +480,7 @@ export default function VerifyPage() {
         body: JSON.stringify({
           descriptor,
           livenessPassed: true,
+          challenge,
         }),
       });
 
@@ -426,6 +490,14 @@ export default function VerifyPage() {
         result,
         "Face verification failed."
       );
+
+      // Security: activate cooldown when the server blocks verification.
+      if (response.status === 429) {
+        setCooldown(30);
+        setMessage("Too many failed face attempts. Please wait.");
+        setMessageType("error");
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(responseMessage);
@@ -444,6 +516,7 @@ export default function VerifyPage() {
 
       // Redirect to the correct dashboard.
       router.replace(getDashboardPath(account.role));
+
     } catch (error) {
       console.error("Face verification failed:", error);
 
@@ -454,6 +527,7 @@ export default function VerifyPage() {
       );
 
       setMessageType("error");
+
     } finally {
       if (mountedRef.current) {
         setIsVerifying(false);
@@ -560,7 +634,7 @@ export default function VerifyPage() {
             type="button"
             className="auth-submit-button"
             onClick={startCamera}
-            disabled={isLoadingModels || isVerifying}
+            disabled={isLoadingModels || isVerifying || cooldown > 0}
           >
             {isLoadingModels
               ? "Loading Models..."
@@ -569,6 +643,7 @@ export default function VerifyPage() {
                 : "Start Camera"}
           </button>
 
+          {/* Security: disable verification during cooldown */}
           <button
             type="button"
             className="auth-submit-button"
@@ -576,14 +651,17 @@ export default function VerifyPage() {
             disabled={
               !isCameraReady ||
               isVerifying ||
-              isLoadingModels
+              isLoadingModels ||
+              cooldown > 0
             }
           >
-            {isVerifying
-              ? "Verifying..."
-              : account.enrolled
-                ? "Verify My Face"
-                : "Register My Face"}
+            {cooldown > 0
+              ? `Try again in ${cooldown}s`
+              : isVerifying
+                ? "Verifying..."
+                : account.enrolled
+                  ? "Verify My Face"
+                  : "Register My Face"}
           </button>
 
         </div>
