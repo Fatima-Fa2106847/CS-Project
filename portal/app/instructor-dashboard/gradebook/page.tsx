@@ -1,42 +1,68 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { canEditGrade } from "../../../lib/access-control";
-import { recordAuditEvent } from "../../../lib/audit-log";
 import {
   getDashboardPath,
   getSession,
   type PortalSession,
 } from "../../../lib/sessions";
 
+type Assessment = {
+  id: number;
+  title: string;
+  type: string;
+  maxGrade: number;
+};
+
 type Student = {
-  id: string;
+  id: number;
+  universityId: string;
   name: string;
-  assignment: number;
-  exam: number;
+  grades: {
+    assessmentId: number;
+    grade: number | null;
+  }[];
+};
+
+type Course = {
+  id: number;
+  code: string;
+  name: string;
+  assessments: Assessment[];
+  students: Student[];
+};
+
+type GradeChange = {
+  studentId: number;
+  assessmentId: number;
+  grade: number | null;
 };
 
 export default function GradebookPage() {
   const router = useRouter();
 
-  // All React hooks must be declared before conditional returns.
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [currentInstructor, setCurrentInstructor] =
     useState<PortalSession | null>(null);
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(
+    null
+  );
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [changes, setChanges] = useState<GradeChange[]>([]);
+
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [messageType, setMessageType] =
+    useState<"success" | "error">("success");
 
-  const [students, setStudents] = useState<Student[]>([
-    { id: "2021001", name: "Ahmed Ali", assignment: 18, exam: 42 },
-    { id: "2021002", name: "Sara Mohammed", assignment: 20, exam: 45 },
-    { id: "2021003", name: "Omar Hassan", assignment: 16, exam: 38 },
-    { id: "2021004", name: "Mariam Khalid", assignment: 19, exam: 44 },
-  ]);
-
+  // Check instructor session
   useEffect(() => {
     void getSession()
       .then((session) => {
@@ -55,94 +81,181 @@ export default function GradebookPage() {
       });
   }, [router]);
 
-  const instructorId = currentInstructor?.userId ?? "";
+  // Load real gradebook data
+  useEffect(() => {
+    if (isCheckingSession) return;
 
-  const canEdit = currentInstructor
-    ? canEditGrade({
-        id: currentInstructor.userId,
-        name: currentInstructor.name,
-        role: currentInstructor.role,
-        enrolledCourses: currentInstructor.enrolledCourses,
-        assignedCourses: currentInstructor.assignedCourses,
-      }, "CS380")
-    : false;
+    async function loadGradebook() {
+      try {
+        const response = await fetch("/api/instructor/gradebook", {
+          cache: "no-store",
+        });
 
-  // Update a student's grade
+        if (!response.ok) {
+          throw new Error("Unable to load gradebook.");
+        }
+
+        const data: { courses: Course[] } = await response.json();
+
+        setCourses(data.courses);
+
+        if (data.courses.length > 0) {
+          setSelectedCourseId(data.courses[0].id);
+        }
+      } catch (error) {
+        console.error(error);
+        setMessageType("error");
+        setMessage("Unable to load gradebook.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadGradebook();
+  }, [isCheckingSession]);
+
+  const selectedCourse = courses.find(
+    (course) => course.id === selectedCourseId
+  );
+
+  // Read the current grade, including unsaved changes
+  function getGrade(
+    student: Student,
+    assessmentId: number
+  ): number | null {
+    const changed = changes.find(
+      (item) =>
+        item.studentId === student.id &&
+        item.assessmentId === assessmentId
+    );
+
+    if (changed) {
+      return changed.grade;
+    }
+
+    return (
+      student.grades.find(
+        (item) => item.assessmentId === assessmentId
+      )?.grade ?? null
+    );
+  }
+
+  // Update a grade locally
   function updateGrade(
-    id: string,
-    field: "assignment" | "exam",
-    value: number
+    studentId: number,
+    assessmentId: number,
+    value: string,
+    maxGrade: number
   ) {
-    const student = students.find((s) => s.id === id);
+    setMessage("");
 
-    if (!canEdit || !currentInstructor) {
-      recordAuditEvent({
-        userId: instructorId || "UNKNOWN",
-        userRole: "instructor",
-        action: "EDIT_GRADE",
-        details: `Unauthorized attempt to edit ${field} grade for student ${id}`,
-        status: "DENIED",
-      });
+    if (value === "") {
+      setChanges((previous) =>
+        previous.filter(
+          (item) =>
+            !(
+              item.studentId === studentId &&
+              item.assessmentId === assessmentId
+            )
+        )
+      );
 
-      setMessageType("error");
-      setMessage("Access denied: You cannot edit this course.");
       return;
     }
 
-    if (!student) {
-      setMessageType("error");
-      setMessage("Student not found.");
-      return;
-    }
+    const grade = Number(value);
 
     if (
-      !Number.isFinite(value) ||
-      (field === "assignment" && (value < 0 || value > 20)) ||
-      (field === "exam" && (value < 0 || value > 50))
+      !Number.isFinite(grade) ||
+      grade < 0 ||
+      grade > maxGrade
     ) {
       setMessageType("error");
-      setMessage("Invalid grade. Please enter a valid grade.");
+      setMessage(`Grade must be between 0 and ${maxGrade}.`);
       return;
     }
 
-    const oldValue = student[field];
+    setChanges((previous) => {
+      const filtered = previous.filter(
+        (item) =>
+          !(
+            item.studentId === studentId &&
+            item.assessmentId === assessmentId
+          )
+      );
 
-    setStudents((previous) =>
-      previous.map((s) =>
-        s.id === id ? { ...s, [field]: value } : s
-      )
-    );
-
-    recordAuditEvent({
-      userId: currentInstructor.userId,
-      userRole: "instructor",
-      action: "EDIT_GRADE",
-      details: `Changed ${field} grade for student ${id} in CS380 from ${oldValue} to ${value}`,
-      status: "SUCCESS",
+      return [
+        ...filtered,
+        {
+          studentId,
+          assessmentId,
+          grade,
+        },
+      ];
     });
-
-    setMessageType("success");
-    setMessage("Grade updated successfully in the demo.");
   }
 
-  // Save grades (demonstration only)
-  function saveGrades() {
-    if (!canEdit) {
+  // Save all changed grades
+  async function saveGrades() {
+    if (isSaving || changes.length === 0) return;
+
+    setIsSaving(true);
+    setMessage("");
+
+    try {
+      for (const change of changes) {
+        if (change.grade === null) continue;
+
+        const response = await fetch("/api/instructor/gradebook", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(change),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Unable to save grade.");
+        }
+      }
+
+      // Reload the latest saved grades
+      const response = await fetch("/api/instructor/gradebook", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Grades saved, but unable to refresh.");
+      }
+
+      const data: { courses: Course[] } = await response.json();
+
+      setCourses(data.courses);
+      setChanges([]);
+
+      setMessageType("success");
+      setMessage("All grade changes saved successfully!");
+    } catch (error) {
+      console.error(error);
+
       setMessageType("error");
-      setMessage("Access denied: You cannot edit this course.");
-      return;
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save grades."
+      );
+    } finally {
+      setIsSaving(false);
     }
-
-    setMessageType("success");
-    setMessage(
-      "Demo: Grade changes are displayed but not yet saved to a database."
-    );
   }
 
-  // Show loading while checking the instructor session
   if (isCheckingSession) {
     return (
-      <main className="portal-container" style={{ padding: "50px 20px" }}>
+      <main
+        className="portal-container"
+        style={{ padding: "50px 20px" }}
+      >
         <p>Checking instructor access...</p>
       </main>
     );
@@ -163,7 +276,7 @@ export default function GradebookPage() {
         </h1>
 
         <p>
-          CS380 – Cybersecurity Fundamentals
+          Manage student grades for your assigned courses.
         </p>
 
         <p style={{ fontSize: "14px" }}>
@@ -176,85 +289,164 @@ export default function GradebookPage() {
           Student Grades
         </h2>
 
-        <div style={{ overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Assignment / 20</th>
-                <th>Exam / 50</th>
-                <th>Total / 70</th>
-              </tr>
-            </thead>
+        {isLoading ? (
+          <p>Loading gradebook...</p>
+        ) : courses.length === 0 ? (
+          <p>No courses assigned to your account.</p>
+        ) : (
+          <>
+            {/* Course dropdown */}
+            <div style={{ marginBottom: "25px" }}>
+              <label
+                htmlFor="course-select"
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: 700,
+                }}
+              >
+                Select Course
+              </label>
 
-            <tbody>
-              {students.map((student) => (
-                <tr key={student.id}>
-                  <td>{student.id}</td>
+              <select
+                id="course-select"
+                value={selectedCourseId ?? ""}
+                disabled={isSaving}
+                onChange={(event) => {
+                  setSelectedCourseId(Number(event.target.value));
+                  setMessage("");
+                }}
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  width: "100%",
+                  maxWidth: "350px",
+                }}
+              >
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.code} – {course.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                  <td>{student.name}</td>
+            {selectedCourse && (
+              <>
+                <h3 style={{ marginBottom: "15px" }}>
+                  {selectedCourse.code} – {selectedCourse.name}
+                </h3>
 
-                  <td>
-                    <input
-                      type="number"
-                      min="0"
-                      max="20"
-                      step="1"
-                      value={student.assignment}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        updateGrade(
-                          student.id,
-                          "assignment",
-                          Number(e.target.value)
-                        )
-                      }
-                      style={{ width: "75px" }}
-                    />
-                  </td>
+                <div style={{ overflowX: "auto" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Student ID</th>
+                        <th>Student Name</th>
 
-                  <td>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      step="1"
-                      value={student.exam}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        updateGrade(
-                          student.id,
-                          "exam",
-                          Number(e.target.value)
-                        )
-                      }
-                      style={{ width: "75px" }}
-                    />
-                  </td>
+                        {selectedCourse.assessments.map((assessment) => (
+                          <th key={assessment.id}>
+                            {assessment.title} / {assessment.maxGrade}
+                          </th>
+                        ))}
 
-                  <td>
-                    <strong>
-                      {student.assignment + student.exam} / 70
-                    </strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        <th>
+                          Total /{" "}
+                          {selectedCourse.assessments.reduce(
+                            (sum, assessment) =>
+                              sum + assessment.maxGrade,
+                            0
+                          )}
+                        </th>
+                      </tr>
+                    </thead>
 
-        <button
-          className="portal-button"
-          onClick={saveGrades}
-          disabled={!canEdit}
-          style={{ marginTop: "25px" }}
-        >
-          Save Changes
-        </button>
+                    <tbody>
+                      {selectedCourse.students.map((student) => {
+                        const total = selectedCourse.assessments.reduce(
+                          (sum, assessment) =>
+                            sum +
+                            (getGrade(student, assessment.id) ?? 0),
+                          0
+                        );
+
+                        const maxTotal =
+                          selectedCourse.assessments.reduce(
+                            (sum, assessment) =>
+                              sum + assessment.maxGrade,
+                            0
+                          );
+
+                        return (
+                          <tr key={student.id}>
+                            <td>{student.universityId}</td>
+                            <td>{student.name}</td>
+
+                            {selectedCourse.assessments.map(
+                              (assessment) => (
+                                <td key={assessment.id}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={assessment.maxGrade}
+                                    step="0.5"
+                                    value={
+                                      getGrade(
+                                        student,
+                                        assessment.id
+                                      ) ?? ""
+                                    }
+                                    disabled={isSaving}
+                                    onChange={(event) =>
+                                      updateGrade(
+                                        student.id,
+                                        assessment.id,
+                                        event.target.value,
+                                        assessment.maxGrade
+                                      )
+                                    }
+                                    style={{ width: "75px" }}
+                                  />
+                                </td>
+                              )
+                            )}
+
+                            <td>
+                              <strong>
+                                {total} / {maxTotal}
+                              </strong>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {selectedCourse.students.length === 0 && (
+                  <p style={{ marginTop: "15px" }}>
+                    No students are enrolled in this course.
+                  </p>
+                )}
+
+                <button
+                  className="portal-button"
+                  onClick={saveGrades}
+                  disabled={isSaving || changes.length === 0}
+                  style={{ marginTop: "25px" }}
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : `Save Changes (${changes.length})`}
+                </button>
+              </>
+            )}
+          </>
+        )}
 
         {message && (
           <p
+            role="status"
             style={{
               marginTop: "18px",
               fontWeight: 700,
@@ -270,8 +462,9 @@ export default function GradebookPage() {
       </section>
 
       <p style={{ marginTop: "20px", fontSize: "13px" }}>
-        Demonstration gradebook using fictional student records.
-        Changes are temporary and are not saved to a database.
+        Grades are stored securely in the university database.
+        Only authorized instructors can update grades for their
+        assigned courses.
       </p>
     </main>
   );
