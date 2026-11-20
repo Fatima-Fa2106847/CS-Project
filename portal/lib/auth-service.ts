@@ -3,6 +3,7 @@ import { randomBytes, createHash } from "node:crypto";
 
 import prisma from "./prisma.js";
 import { verifyPassword } from "./security/passwords.js";
+import { logSecurityEvent } from "./security/securityLogger.js";
 import {
   isLocked,
   recordFailedAttempt,
@@ -348,7 +349,7 @@ export async function completeAuthVerification(
     return false;
   }
 
-  // Find a successful verification belonging to this session.
+  // Find successful face verification for this session.
   const verification = await prisma.authAttempt.findFirst({
     where: {
       userId: session.userId,
@@ -376,10 +377,10 @@ export async function completeAuthVerification(
     return false;
   }
 
-  return prisma.$transaction(
+  // Activate the session and consume its challenge.
+  const verified = await prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
 
-      // Consume the challenge so it cannot be reused.
       const used = await tx.authAttempt.updateMany({
         where: {
           id: verification.id,
@@ -402,7 +403,6 @@ export async function completeAuthVerification(
         return false;
       }
 
-      // Activate only the session that completed verification.
       const result = await tx.session.updateMany({
         where: {
           id: session.id,
@@ -430,6 +430,22 @@ export async function completeAuthVerification(
       return true;
     }
   );
+
+  // Log only after the transaction succeeds.
+  if (verified) {
+    try {
+      await logSecurityEvent({
+        userId: session.userId,
+        action: "LOGIN_SUCCESS",
+        success: true,
+        details: "Password and facial verification completed.",
+      });
+    } catch (error) {
+      console.error("Failed to record login security event:", error);
+    }
+  }
+
+  return verified;
 }
 
 export async function deleteAuthSession(
@@ -443,12 +459,38 @@ export async function deleteAuthSession(
     .update(token)
     .digest("hex");
 
-  await prisma.session.updateMany({
+  // Revoke only sessions that have not already been revoked.
+  const session = await prisma.session.findUnique({
     where: {
       tokenHash,
+    },
+  });
+
+  if (!session || session.revokedAt !== null) {
+    return;
+  }
+
+  const result = await prisma.session.updateMany({
+    where: {
+      id: session.id,
+      revokedAt: null,
     },
     data: {
       revokedAt: new Date(),
     },
   });
+
+  // Log successful revocation without exposing the session token.
+  if (result.count === 1) {
+    try {
+      await logSecurityEvent({
+        userId: session.userId,
+        action: "LOGOUT",
+        success: true,
+        details: "Authentication session revoked.",
+      });
+    } catch (error) {
+      console.error("Failed to record logout security event:", error);
+    }
+  }
 }

@@ -1,12 +1,11 @@
-
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { recordAuditEvent } from "../../lib/audit-log";
-import { getDashboardPath, isSessionRole } from "../../lib/sessions";
+import { isSessionRole } from "../../lib/sessions";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,10 +15,24 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Countdown shown when the server locks the account.
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setTimeout(() => {
+      setCooldown((previous) => Math.max(0, previous - 1));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (isSubmitting) return;
+    // Prevent submitting during the lockout.
+    if (isSubmitting || cooldown > 0) return;
 
     setMessage("");
     setIsSubmitting(true);
@@ -58,6 +71,17 @@ export default function LoginPage() {
         );
       }
 
+      // Start the countdown when the server returns HTTP 429.
+      if (response.status === 429) {
+        setCooldown(30);
+        setMessage(
+          typeof result.message === "string"
+            ? result.message
+            : "Too many failed attempts. Try again in 30 seconds."
+        );
+        return;
+      }
+
       if (!response.ok) {
         setMessage(
           typeof result.message === "string"
@@ -91,7 +115,7 @@ export default function LoginPage() {
 
       // All three roles must complete face verification.
       router.replace("/verify");
-      
+
     } catch (error) {
       console.error("Login error:", error);
 
@@ -144,7 +168,7 @@ export default function LoginPage() {
               }
               autoComplete="username"
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || cooldown > 0}
             />
           </div>
 
@@ -163,7 +187,7 @@ export default function LoginPage() {
               }
               autoComplete="current-password"
               required
-              disabled={isSubmitting}
+              disabled={isSubmitting || cooldown > 0}
             />
           </div>
 
@@ -176,9 +200,13 @@ export default function LoginPage() {
           <button
             type="submit"
             className="auth-submit-button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || cooldown > 0}
           >
-            {isSubmitting ? "Signing in..." : "Log In →"}
+            {isSubmitting
+              ? "Signing in..."
+              : cooldown > 0
+                ? `Try again in ${cooldown}s 🔒`
+                : "Log In →"}
           </button>
 
         </form>
@@ -189,10 +217,6 @@ export default function LoginPage() {
 
         <Link href="/" className="auth-back-link">
           ← Back to Home
-        </Link>
-
-        <Link href="/register" className="auth-back-link">
-          Create a student account
         </Link>
 
       </div>
