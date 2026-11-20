@@ -1,25 +1,45 @@
-
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { canViewGrade } from "../../lib/access-control";
 import {
   clearSession,
   getDashboardPath,
   getSession,
   type PortalSession,
 } from "../../lib/sessions";
-import { recordAuditEvent } from "../../lib/audit-log";
+
+type Assessment = {
+  id: number;
+  title: string;
+  maxGrade: number;
+  grade: number | null;
+};
+
+type Course = {
+  id: number;
+  code: string;
+  name: string;
+  assessments: Assessment[];
+  total: number;
+  maxTotal: number;
+  hasGrades: boolean;
+};
 
 export default function StudentDashboard() {
   const router = useRouter();
 
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [currentStudent, setCurrentStudent] = useState<PortalSession | null>(null);
+  const [currentStudent, setCurrentStudent] =
+    useState<PortalSession | null>(null);
 
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
+  const [coursesError, setCoursesError] = useState("");
+
+  // Check student session
   useEffect(() => {
     void getSession()
       .then((session) => {
@@ -42,17 +62,36 @@ export default function StudentDashboard() {
       });
   }, [router]);
 
-  async function handleLogout() {
-    if (currentStudent) {
-      recordAuditEvent({
-        userId: currentStudent.userId,
-        userRole: "student",
-        action: "LOGOUT",
-        details: "Student logged out.",
-        status: "SUCCESS",
-      });
+  // Load real courses and grades
+  useEffect(() => {
+    if (isCheckingSession) return;
+
+    async function loadCourses() {
+      try {
+        const response = await fetch("/api/student/courses", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to load student courses.");
+        }
+
+        const data: { courses: Course[] } = await response.json();
+
+        setCourses(data.courses);
+      } catch (error) {
+        console.error("Student courses error:", error);
+        setCoursesError("Unable to load your courses and grades.");
+      } finally {
+        setIsLoadingCourses(false);
+      }
     }
 
+    void loadCourses();
+  }, [isCheckingSession]);
+
+  // Logout
+  async function handleLogout() {
     try {
       await clearSession();
       router.replace("/");
@@ -61,53 +100,17 @@ export default function StudentDashboard() {
     }
   }
 
-  // Demonstration course information
-  const courses = [
-    {
-      studentId: "2021001",
-      code: "CS380",
-      name: "Cybersecurity Fundamentals",
-      grade: "A-",
-      description: "Information security, threats and protection.",
-    },
-    {
-      studentId: "2021001",
-      code: "CS301",
-      name: "Operating Systems",
-      grade: "B+",
-      description: "Processes, memory and operating system concepts.",
-    },
-    {
-      studentId: "2021001",
-      code: "MATH231",
-      name: "Linear Algebra",
-      grade: "A",
-      description: "Matrices, vectors and linear transformations.",
-    },
-  ];
-
-  // Show only courses the student is permitted to view
-  const visibleCourses = currentStudent
-    ? courses.filter((course) =>
-        course.studentId === currentStudent.userId &&
-        canViewGrade({
-          id: currentStudent.userId,
-          name: currentStudent.name,
-          role: currentStudent.role,
-          enrolledCourses: currentStudent.enrolledCourses,
-          assignedCourses: currentStudent.assignedCourses,
-        }, {
-          studentId: course.studentId,
-          courseId: course.code,
-          assignmentGrade: 0,
-          examGrade: 0,
-        })
-      )
-    : [];
+  // Count courses containing saved grades
+  const publishedGrades = courses.filter(
+    (course) => course.hasGrades
+  ).length;
 
   if (isCheckingSession || !currentStudent) {
     return (
-      <main className="portal-container" style={{ padding: "50px 20px" }}>
+      <main
+        className="portal-container"
+        style={{ padding: "50px 20px" }}
+      >
         <p>Checking student access...</p>
       </main>
     );
@@ -144,7 +147,7 @@ export default function StudentDashboard() {
 
             <p>
               Here is an overview of your academic information
-              and published grades.
+              and recorded grades.
             </p>
           </div>
 
@@ -162,7 +165,9 @@ export default function StudentDashboard() {
           <div className="dashboard-stat-card">
             <span className="dashboard-stat-icon">📚</span>
             <div>
-              <h3>{visibleCourses.length}</h3>
+              <h3>
+                {isLoadingCourses ? "..." : courses.length}
+              </h3>
               <p>Enrolled Courses</p>
             </div>
           </div>
@@ -170,8 +175,10 @@ export default function StudentDashboard() {
           <div className="dashboard-stat-card">
             <span className="dashboard-stat-icon">📊</span>
             <div>
-              <h3>{visibleCourses.length}</h3>
-              <p>Published Grades</p>
+              <h3>
+                {isLoadingCourses ? "..." : publishedGrades}
+              </h3>
+              <p>Courses With Grades</p>
             </div>
           </div>
         </section>
@@ -181,20 +188,26 @@ export default function StudentDashboard() {
           <div className="dashboard-section-heading">
             <div>
               <h2>My Courses</h2>
-              <p>Your academic courses and published grades.</p>
+              <p>Your academic courses and recorded grades.</p>
             </div>
 
             <span className="dashboard-course-count">
-              {visibleCourses.length} Courses
+              {courses.length} Courses
             </span>
           </div>
 
-          <div className="student-course-grid">
-            {visibleCourses.length > 0 ? (
-              visibleCourses.map((course) => (
+          {isLoadingCourses ? (
+            <p>Loading your courses...</p>
+          ) : coursesError ? (
+            <p role="alert">{coursesError}</p>
+          ) : courses.length === 0 ? (
+            <p>No courses are currently available.</p>
+          ) : (
+            <div className="student-course-grid">
+              {courses.map((course) => (
                 <article
                   className="student-course-card"
-                  key={course.code}
+                  key={course.id}
                 >
                   <div className="student-course-top">
                     <span className="student-course-code">
@@ -208,18 +221,39 @@ export default function StudentDashboard() {
 
                   <h3>{course.name}</h3>
 
-                  <p>{course.description}</p>
+                  <p>
+                    {course.assessments.length} Assessments
+                  </p>
 
+                  {/* Individual assessment grades */}
+                  <div style={{ marginTop: "15px" }}>
+                    {course.assessments.map((assessment) => (
+                      <p
+                        key={assessment.id}
+                        style={{ marginBottom: "8px" }}
+                      >
+                        <strong>{assessment.title}:</strong>{" "}
+                        {assessment.grade === null
+                          ? "Not graded"
+                          : `${assessment.grade} / ${assessment.maxGrade}`}
+                      </p>
+                    ))}
+                  </div>
+
+                  {/* Total grade */}
                   <div className="student-course-grade">
-                    <span>Published Grade</span>
-                    <strong>{course.grade}</strong>
+                    <span>Recorded Total</span>
+
+                    <strong>
+                      {course.hasGrades
+                        ? `${course.total} / ${course.maxTotal}`
+                        : "Not graded"}
+                    </strong>
                   </div>
                 </article>
-              ))
-            ) : (
-              <p>No published courses are currently available.</p>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Security note */}
