@@ -1,0 +1,7 @@
+#Libraries required for the face verification ssytem:
+
+deepface==0.0.103
+opencv-python==5.0.0.93
+numpy==2.5.4
+werkzeug
+
