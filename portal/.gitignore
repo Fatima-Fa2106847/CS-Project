@@ -41,17 +41,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-<<<<<<< HEAD
 # SQLite database
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-=======
+
+# Python
 .venv/
 __pycache__/
 face-verification/*.png
 face-verification/*.jpg
 
+# Private facial templates
 /private_face_templates/
->>>>>>> origin/face-verification
