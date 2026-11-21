@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,59 +7,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. University accounts: STUDENT, INSTRUCTOR, ADMIN
 model User {
-  id                Int      @id @default(autoincrement())
-  universityId      String   @unique
+  id                Int           @id @default(autoincrement())
+  universityId      String        @unique
   name              String
-  email             String   @unique
+  email             String        @unique
   passwordHash      String
-  role              String   @default("STUDENT")
-  status            String   @default("ACTIVE")
+  role              String        @default("STUDENT")
+  status            String        @default("ACTIVE")
   faceTemplateRef   String?
-  passwordChangedAt DateTime @default(now())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  taughtCourses Course[]      @relation("CourseInstructor")
-  enrollments   Enrollment[]
-  grades        Grade[]       @relation("StudentGrades")
-  gradedBy      Grade[]       @relation("GradeEditor")
-  sessions      Session[]
-  loginAttempts LoginAttempt[]
-  authAttempts  AuthAttempt[]
-  activityLogs  ActivityLog[] @relation("ActivityActor")
-  targetedLogs  ActivityLog[] @relation("ActivityTarget")
+  passwordChangedAt DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  targetedLogs      ActivityLog[] @relation("ActivityTarget")
+  activityLogs      ActivityLog[] @relation("ActivityActor")
+  authAttempts      AuthAttempt[]
+  taughtCourses     Course[]      @relation("CourseInstructor")
+  enrollments       Enrollment[]
+  gradedBy          Grade[]       @relation("GradeEditor")
+  grades            Grade[]       @relation("StudentGrades")
+  loginAttempts     LoginAttempt?
+  sessions          Session[]
 }
 
-// 2. University courses
 model Course {
-  id           Int      @id @default(autoincrement())
-  courseCode   String   @unique
+  id           Int          @id @default(autoincrement())
+  courseCode   String       @unique
   courseName   String
   instructorId Int
-  createdAt    DateTime @default(now())
-
-  instructor  User         @relation("CourseInstructor", fields: [instructorId], references: [id])
-  enrollments Enrollment[]
-  assessments Assessment[]
+  createdAt    DateTime     @default(now())
+  assessments  Assessment[]
+  instructor   User         @relation("CourseInstructor", fields: [instructorId], references: [id])
+  enrollments  Enrollment[]
 }
 
-// 3. Student enrollments
 model Enrollment {
   id         Int      @id @default(autoincrement())
   studentId  Int
   courseId   Int
   status     String   @default("ACTIVE")
   enrolledAt DateTime @default(now())
-
-  student User   @relation(fields: [studentId], references: [id])
-  course  Course @relation(fields: [courseId], references: [id])
+  course     Course   @relation(fields: [courseId], references: [id])
+  student    User     @relation(fields: [studentId], references: [id])
 
   @@unique([studentId, courseId])
 }
 
-// 4. Course assessments: assignments, quizzes, exams
 model Assessment {
   id        Int       @id @default(autoincrement())
   courseId  Int
@@ -69,29 +61,25 @@ model Assessment {
   maxGrade  Float
   dueDate   DateTime?
   createdAt DateTime  @default(now())
-
-  course Course  @relation(fields: [courseId], references: [id])
-  grades Grade[]
+  course    Course    @relation(fields: [courseId], references: [id])
+  grades    Grade[]
 }
 
-// 5. Student grades
 model Grade {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   studentId    Int
   assessmentId Int
   grade        Float
   gradedById   Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  student    User       @relation("StudentGrades", fields: [studentId], references: [id])
-  assessment Assessment @relation(fields: [assessmentId], references: [id])
-  gradedBy   User?      @relation("GradeEditor", fields: [gradedById], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  gradedBy     User?      @relation("GradeEditor", fields: [gradedById], references: [id])
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  student      User       @relation("StudentGrades", fields: [studentId], references: [id])
 
   @@unique([studentId, assessmentId])
 }
 
-// 6. Activity and security logs
 model ActivityLog {
   id           Int      @id @default(autoincrement())
   userId       Int?
@@ -101,14 +89,12 @@ model ActivityLog {
   details      String?
   ipAddress    String?
   createdAt    DateTime @default(now())
-
-  user       User? @relation("ActivityActor", fields: [userId], references: [id])
-  targetUser User? @relation("ActivityTarget", fields: [targetUserId], references: [id])
+  targetUser   User?    @relation("ActivityTarget", fields: [targetUserId], references: [id])
+  user         User?    @relation("ActivityActor", fields: [userId], references: [id])
 
   @@index([createdAt])
 }
 
-// 7. Failed login attempts and cooldowns
 model LoginAttempt {
   id            Int       @id @default(autoincrement())
   userId        Int?      @unique
@@ -117,30 +103,26 @@ model LoginAttempt {
   lastFailedAt  DateTime?
   lockedUntil   DateTime?
   lastIpAddress String?
-
-  user User? @relation(fields: [userId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id])
 }
 
-// 8. Login sessions
 model Session {
-  id             Int       @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   userId         Int
-  status         String    @default("PENDING")
-  tokenHash      String    @unique
-  createdAt      DateTime  @default(now())
-  lastActivityAt DateTime  @default(now())
+  status         String        @default("PENDING")
+  tokenHash      String        @unique
+  createdAt      DateTime      @default(now())
+  lastActivityAt DateTime      @default(now())
   expiresAt      DateTime
   revokedAt      DateTime?
   ipAddress      String?
   userAgent      String?
-
-  user         User          @relation(fields: [userId], references: [id])
-  authAttempts AuthAttempt[]
+  authAttempts   AuthAttempt[]
+  user           User          @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
-// 9. Face authentication and liveness attempts
 model AuthAttempt {
   id                 Int       @id @default(autoincrement())
   userId             Int
@@ -154,9 +136,8 @@ model AuthAttempt {
   success            Boolean   @default(false)
   failureReason      String?
   createdAt          DateTime  @default(now())
-
-  user    User     @relation(fields: [userId], references: [id])
-  session Session? @relation(fields: [sessionId], references: [id])
+  session            Session?  @relation(fields: [sessionId], references: [id])
+  user               User      @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([sessionId])
