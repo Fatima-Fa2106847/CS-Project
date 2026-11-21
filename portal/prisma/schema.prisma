@@ -1,34 +1,36 @@
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // 1. University accounts: STUDENT, INSTRUCTOR, ADMIN
 model User {
-  id                Int       @id @default(autoincrement())
-  universityId      String    @unique
+  id                Int      @id @default(autoincrement())
+  universityId      String   @unique
   name              String
-  email             String    @unique
+  email             String   @unique
   passwordHash      String
-  role              String    @default("STUDENT")
-  status            String    @default("ACTIVE")
+  role              String   @default("STUDENT")
+  status            String   @default("ACTIVE")
   faceTemplateRef   String?
-  passwordChangedAt DateTime  @default(now())
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  passwordChangedAt DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  taughtCourses     Course[]       @relation("CourseInstructor")
-  enrollments       Enrollment[]
-  grades            Grade[]        @relation("StudentGrades")
-  gradedBy          Grade[]        @relation("GradeEditor")
-  sessions          Session[]
-  loginAttempts     LoginAttempt[]
-  authAttempts      AuthAttempt[]
-  activityLogs      ActivityLog[]  @relation("ActivityActor")
-  targetedLogs      ActivityLog[]  @relation("ActivityTarget")
+  taughtCourses Course[]      @relation("CourseInstructor")
+  enrollments   Enrollment[]
+  grades        Grade[]       @relation("StudentGrades")
+  gradedBy      Grade[]       @relation("GradeEditor")
+  sessions      Session[]
+  loginAttempts LoginAttempt[]
+  authAttempts  AuthAttempt[]
+  activityLogs  ActivityLog[] @relation("ActivityActor")
+  targetedLogs  ActivityLog[] @relation("ActivityTarget")
 }
 
 // 2. University courses
@@ -39,9 +41,9 @@ model Course {
   instructorId Int
   createdAt    DateTime @default(now())
 
-  instructor   User         @relation("CourseInstructor", fields: [instructorId], references: [id])
-  enrollments  Enrollment[]
-  assessments  Assessment[]
+  instructor  User         @relation("CourseInstructor", fields: [instructorId], references: [id])
+  enrollments Enrollment[]
+  assessments Assessment[]
 }
 
 // 3. Student enrollments
