@@ -2,6 +2,12 @@ const { PrismaClient } = require("@prisma/client");
 const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 const argon2 = require("argon2");
 
+// Import password security functions
+const {
+  validatePassword,
+  isPasswordCompromised,
+} = require("../lib/security/passwordPolicy.js");
+
 // Connect to SQLite
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL,
@@ -49,12 +55,34 @@ async function main() {
     });
 
     if (!existing) {
+      // Check that password exists
       if (!user.password) {
         throw new Error(
           `Missing seed password for ${user.name}`
         );
       }
 
+      // Check password length and common passwords
+      const result = validatePassword(user.password);
+
+      if (!result.valid) {
+        throw new Error(
+          `Invalid password for ${user.name}: ${result.reason}`
+        );
+      }
+
+      // Check if password appeared in a data breach
+      const compromised = await isPasswordCompromised(
+        user.password
+      );
+
+      if (compromised) {
+        throw new Error(
+          `Invalid password for ${user.name}: Password found in a data breach.`
+        );
+      }
+
+      // Hash password using Argon2id
       const passwordHash = await argon2.hash(user.password, {
         type: argon2.argon2id,
       });
@@ -126,7 +154,9 @@ async function main() {
       });
 
       if (!course || course.instructorId !== instructor.id) {
-        throw new Error(`Course not assigned correctly: ${courseCode}`);
+        throw new Error(
+          `Course not assigned correctly: ${courseCode}`
+        );
       }
 
       await prisma.enrollment.upsert({
@@ -144,70 +174,76 @@ async function main() {
         },
       });
 
-      console.log(`${student.name} enrolled in ${courseCode}`);
+      console.log(
+        `${student.name} enrolled in ${courseCode}`
+      );
     }
   }
+
   // Create assessments for both courses
-const assessments = [
-  {
-    courseCode: "CS380",
-    title: "Assignment",
-    type: "ASSIGNMENT",
-    maxGrade: 20,
-  },
-  {
-    courseCode: "CS380",
-    title: "Exam",
-    type: "EXAM",
-    maxGrade: 50,
-  },
-  {
-    courseCode: "CS301",
-    title: "Assignment",
-    type: "ASSIGNMENT",
-    maxGrade: 20,
-  },
-  {
-    courseCode: "CS301",
-    title: "Exam",
-    type: "EXAM",
-    maxGrade: 50,
-  },
-];
-
-for (const assessment of assessments) {
-  const course = await prisma.course.findUnique({
-    where: { courseCode: assessment.courseCode },
-  });
-
-  if (!course) {
-    throw new Error(`Course not found: ${assessment.courseCode}`);
-  }
-
-  // Avoid creating duplicate assessments when seeding again
-  const existing = await prisma.assessment.findFirst({
-    where: {
-      courseId: course.id,
-      title: assessment.title,
-      type: assessment.type,
+  const assessments = [
+    {
+      courseCode: "CS380",
+      title: "Assignment",
+      type: "ASSIGNMENT",
+      maxGrade: 20,
     },
-  });
+    {
+      courseCode: "CS380",
+      title: "Exam",
+      type: "EXAM",
+      maxGrade: 50,
+    },
+    {
+      courseCode: "CS301",
+      title: "Assignment",
+      type: "ASSIGNMENT",
+      maxGrade: 20,
+    },
+    {
+      courseCode: "CS301",
+      title: "Exam",
+      type: "EXAM",
+      maxGrade: 50,
+    },
+  ];
 
-  if (!existing) {
-    await prisma.assessment.create({
-      data: {
+  for (const assessment of assessments) {
+    const course = await prisma.course.findUnique({
+      where: { courseCode: assessment.courseCode },
+    });
+
+    if (!course) {
+      throw new Error(
+        `Course not found: ${assessment.courseCode}`
+      );
+    }
+
+    // Avoid duplicate assessments
+    const existing = await prisma.assessment.findFirst({
+      where: {
         courseId: course.id,
         title: assessment.title,
         type: assessment.type,
-        maxGrade: assessment.maxGrade,
       },
     });
+
+    if (!existing) {
+      await prisma.assessment.create({
+        data: {
+          courseId: course.id,
+          title: assessment.title,
+          type: assessment.type,
+          maxGrade: assessment.maxGrade,
+        },
+      });
+    }
+
+    console.log(
+      `Assessment ready: ${assessment.courseCode} - ${assessment.title}`
+    );
   }
 
-  console.log(
-    `Assessment ready: ${assessment.courseCode} - ${assessment.title}`
-  );
-}
   console.log("Database seeding completed!");
 }
 

@@ -1,32 +1,48 @@
-import assert from "node:assert/strict";
-import { validatePassword } from "../lib/security/passwordPolicy.js";
+const assert = require("node:assert/strict");
 
-// Test short password
-assert.equal(validatePassword("12345").valid, false);
-console.log("PASS: Short password rejected.");
+const {
+  validatePassword,
+  isPasswordCompromised,
+} = require("../lib/security/passwordPolicy.js");
 
-// Test common password
-assert.equal(validatePassword("password123").valid, false);
-console.log("PASS: Common password rejected.");
+async function main() {
+  // Test short password
+  assert.equal(validatePassword("12345").valid, false);
+  console.log("PASS: Short password rejected.");
 
-// Test unsafe password
-assert.equal(validatePassword("administrator").valid, false);
-console.log("PASS: Unsafe password rejected.");
+  // Test common password
+  assert.equal(validatePassword("password123").valid, false);
+  console.log("PASS: Common password rejected.");
 
-// Test valid password
-assert.equal(validatePassword("MySecurePassword2026").valid, true);
-console.log("PASS: Valid password accepted.");
+  // Test unsafe password
+  assert.equal(validatePassword("administrator").valid, false);
+  console.log("PASS: Unsafe password rejected.");
 
-// Test password with spaces
-assert.equal(validatePassword("My secure password 2026").valid, true);
-console.log("PASS: Password with spaces accepted.");
+  // Test valid password
+  assert.equal(validatePassword("MySecurePassword2026").valid, true);
+  console.log("PASS: Valid password accepted.");
 
-// Test long password
-assert.equal(validatePassword("A".repeat(70)).valid, true);
-console.log("PASS: Long password accepted.");
+  // Test password with spaces
+  assert.equal(validatePassword("My secure password 2026").valid, true);
+  console.log("PASS: Password with spaces accepted.");
 
-// Test invalid input
-assert.equal(validatePassword(12345).valid, false);
-console.log("PASS: Invalid input rejected.");
+  // Test long password
+  assert.equal(validatePassword("A".repeat(70)).valid, true);
+  console.log("PASS: Long password accepted.");
 
-console.log("All password policy tests passed.");
+  // Test invalid input
+  assert.equal(validatePassword(12345).valid, false);
+  console.log("PASS: Invalid input rejected.");
+
+  // Test compromised password
+  const compromised = await isPasswordCompromised("password123");
+  assert.equal(compromised, true);
+  console.log("PASS: Compromised password detected.");
+
+  console.log("All password policy tests passed.");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
