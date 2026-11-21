@@ -3,7 +3,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 // Connect to the SQLite database
 const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL,
+  url: "file:./prisma/dev.db",
 });
 
 // Reuse the database connection during development
